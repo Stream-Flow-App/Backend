@@ -3,6 +3,7 @@ const User = require("../models/user.Model");
 const jwt = require('../utils/jwt');
 const { sendEmail } = require("../utils/sendEmail");
 const cookieHelper = require('../utils/cookie');
+const { uploadToCloudinary } = require('../utils/cloudinary');
 
 // Constants
 const HTTP_STATUS = {
@@ -66,6 +67,44 @@ const handleError = (res, statusCode, message, error = null) => {
 const normalizeEmail = (email) => email?.toLowerCase().trim();
 
 /**
+ * Normalizes a stored file path (possibly absolute) to a web-relative URL.
+ * Old uploads stored absolute filesystem paths; newer ones store relative paths.
+ */
+const normalizeFilePath = (filePath) => {
+  if (!filePath) return filePath;
+  // If it's already a relative web path, return as-is
+  if (filePath.startsWith('/uploads/') || filePath.startsWith('/assets/')) return filePath;
+  // Extract the relative part from an absolute path
+  const uploadsIndex = filePath.indexOf('/uploads/');
+  if (uploadsIndex !== -1) return filePath.substring(uploadsIndex);
+  return filePath;
+};
+
+/**
+ * Helper to transform populated lastPlayback into frontend-ready format
+ */
+const formatLastPlayback = (lastPlayback) => {
+  if (!lastPlayback?.songId || typeof lastPlayback.songId !== 'object') return null;
+  const song = lastPlayback.songId;
+  return {
+    currentTime: lastPlayback.currentTime || 0,
+    songId: {
+      _id: song._id,
+      id: song._id,
+      title: song.title,
+      singer: song.singer,
+      artist: song.singer, // alias for normalizeSong on frontend
+      audioUrl: normalizeFilePath(song.audioUrl),
+      coverImageUrl: normalizeFilePath(song.coverImageUrl),
+      genre: song.genre,
+      category: song.category,
+      duration: song.duration,
+      uploadedBy: song.uploadedBy,
+    }
+  };
+};
+
+/**
  * Helper function to create user data object for responses
  */
 const createUserData = (user) => ({
@@ -75,7 +114,8 @@ const createUserData = (user) => ({
   email: user.email,
   role: user.role,
   profileImg: user.profileImg,
-  createdAt: user.createdAt
+  createdAt: user.createdAt,
+  lastPlayback: formatLastPlayback(user.lastPlayback)
 });
 
 /**
@@ -122,7 +162,15 @@ const checkExistingAuth = async (accessToken, req) => {
 
   try {
     const decoded = jwt.verifyToken(accessToken, "access");
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).populate({
+      path: 'lastPlayback.songId',
+      select: 'title singer audioUrl coverImageUrl genre category duration uploadedBy',
+      populate: {
+        path: 'uploadedBy',
+        model: 'User',
+        select: 'username profileImg'
+      }
+    });
     
     if (!user || !user.isActive) {
       return { isLoggedIn: false };
@@ -224,14 +272,19 @@ exports.register = async (req, res) => {
 
     // Handle profile image if provided
     if (req.file) {
-      newUser.profileImg = `/uploads/profiles/${req.file.filename}`;
+      try {
+        const cloudUrl = await uploadToCloudinary(req.file.path, 'streamflow/profiles', 'image');
+        newUser.profileImg = cloudUrl;
+      } catch (err) {
+        console.error("Cloudinary upload failed during registration:", err);
+      }
     }
 
     await newUser.save();
 
     // Generate tokens
-    const accessToken = jwt.generateAccessToken({ id: newUser._id });
-    const refreshToken = jwt.generateRefreshToken({ id: newUser._id });
+    const accessToken = jwt.generateAccessToken(newUser);
+    const refreshToken = jwt.generateRefreshToken(newUser);
 
     // Get device info and create session
     const deviceInfo = getDeviceInfo(req);
@@ -284,7 +337,15 @@ exports.login = async (req, res) => {
     // Find user by email or username
     const user = await User.findOne({
       $or: [{ email: normalizedEmail }, { username: email.trim() }]
-    }).select("+password");
+    }).select("+password").populate({
+      path: 'lastPlayback.songId',
+      select: 'title singer audioUrl coverImageUrl genre category duration uploadedBy',
+      populate: {
+        path: 'uploadedBy',
+        model: 'User',
+        select: 'username profileImg'
+      }
+    });
 
     // Validate user and password
     if (!user || !(await hash.comparePassword(password, user.password))) {
@@ -297,14 +358,14 @@ exports.login = async (req, res) => {
     }
 
     // Generate new access token
-    const newAccessToken = jwt.generateAccessToken({ id: user._id });
+    const newAccessToken = jwt.generateAccessToken(user);
     
     // Only set access token in cookies
     cookieHelper.setAccessTokenCookie(res, newAccessToken);
 
     // Create session with refresh token if remember me is checked
     if (remember) {
-      const refreshToken = jwt.generateRefreshToken({ id: user._id });
+      const refreshToken = jwt.generateRefreshToken(user);
       const deviceInfo = getDeviceInfo(req);
       await createOrUpdateSession(user, refreshToken, deviceInfo);
     }
@@ -350,7 +411,7 @@ exports.forgetPassword = async (req, res) => {
     }
 
     // Generate reset token and link
-    const resetToken = jwt.generateResetToken({ id: user._id });
+    const resetToken = jwt.generateResetToken(user);
     const resetLink = `${process.env.BASE_URL || 'https://soundwave-api-n480.onrender.com'}/user/reset-password?resetToken=${resetToken}`;
 
     // Set reset cookie
@@ -422,7 +483,7 @@ exports.resetPassword = async (req, res) => {
 
     // Clear reset cookie and access token
     cookieHelper.clearResetCookie(res);
-    cookieHelper.clearAccessTokenCookie(res);
+    cookieHelper.clearAuthCookies(res);
 
     return res.status(HTTP_STATUS.OK).json({ 
       message: MESSAGES.PASSWORD_RESET_SUCCESS 
@@ -483,7 +544,7 @@ exports.refreshAccessToken = async (req, res) => {
     }
 
     // Generate new access token
-    const newAccessToken = jwt.generateAccessToken({ id: user._id });
+    const newAccessToken = jwt.generateAccessToken(user);
     cookieHelper.setAccessTokenCookie(res, newAccessToken);
 
     // Update session expiry
@@ -532,7 +593,7 @@ exports.logout = async (req, res) => {
     }
 
     // Clear access token cookie
-    cookieHelper.clearAccessTokenCookie(res);
+    cookieHelper.clearAuthCookies(res);
     
     return res.status(HTTP_STATUS.OK).json({ 
       message: MESSAGES.LOGGED_OUT 
@@ -566,7 +627,7 @@ exports.logoutAllDevices = async (req, res) => {
     await user.save();
 
     // Clear access token cookie
-    cookieHelper.clearAccessTokenCookie(res);
+    cookieHelper.clearAuthCookies(res);
     
     return res.status(HTTP_STATUS.OK).json({ 
       message: "Logged out from all devices successfully." 
@@ -673,5 +734,44 @@ exports.logoutDevice = async (req, res) => {
       return handleError(res, HTTP_STATUS.UNAUTHORIZED, MESSAGES.INVALID_ACCESS_TOKEN);
     }
     return handleError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, MESSAGES.LOGOUT_ERROR, error);
+  }
+};
+/**
+ * Change Password (for logged-in users)
+ */
+exports.changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Both old and new passwords are required." });
+    }
+
+    const user = req.user; // populated by checkAuthenticated
+    if (!user) {
+      return res.status(401).json({ message: "Not authenticated!" });
+    }
+
+    // Verify old password
+    const isMatch = await hash.comparePassword(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect current password." });
+    }
+
+    // Hash new password
+    const hashedPassword = await hash.hashPassword(newPassword);
+    
+    // Update password
+    user.password = hashedPassword;
+    
+    // Clear all sessions so they have to login again, or just keep current session?
+    // Let's keep current session but clear others to be secure, or just let them stay logged in.
+    // For now, just save.
+    await user.save();
+
+    return res.status(200).json({ message: "Password changed successfully." });
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };

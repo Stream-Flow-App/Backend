@@ -36,8 +36,12 @@ const userShcema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ["user","admin"],
+        enum: ["user","artist","moderator","admin"],
         default: "user"
+    },
+    bannedUntil: {
+        type: Date,
+        default: null
     },
     sessions: [
         {
@@ -56,6 +60,10 @@ const userShcema = new mongoose.Schema({
     lastLogin: {
         type: Date,
         default: Date.now()
+    },
+    lastPlayback: {
+        songId: { type: mongoose.Schema.Types.ObjectId, ref: 'Audio' },
+        currentTime: { type: Number, default: 0 }
     }
 },
 { timestamps:true }

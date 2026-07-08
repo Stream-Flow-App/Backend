@@ -1,6 +1,7 @@
   const path = require('path');
   const fs = require('fs');
   const Audio = require('../models/audio.Model');
+  const { uploadToCloudinary } = require('../utils/cloudinary');
 
   // === Upload Audio ===
   // === Upload Audio ===
@@ -26,7 +27,7 @@
         singers = singer;
       }
 
-      if (!Array.isArray(singer) || singers.length === 0) {
+      if (!singers || singers.length === 0) {
         return res.status(400).json({ message: 'At least one singer is required.' });
       }
 
@@ -37,16 +38,26 @@
       const audioFile = req.files.audio[0];
       const coverFile = req.files.cover[0];
 
+      let cloudAudioUrl = `/uploads/audio/${audioFile.filename}`;
+      let cloudCoverUrl = `/uploads/audio/${coverFile.filename}`;
+
+      try {
+        cloudAudioUrl = await uploadToCloudinary(audioFile.path, 'streamflow/audio', 'video');
+        cloudCoverUrl = await uploadToCloudinary(coverFile.path, 'streamflow/covers', 'image');
+      } catch (uploadError) {
+        console.error("Cloudinary upload failed during audio creation:", uploadError);
+      }
+
       const audio = new Audio({
         title: title.trim(),
         genre: genre.trim(),
         isPrivate: isPrivate === 'true',
         singer: singers,
-        audioUrl: `${__dirname}/../uploads/audio/${audioFile.filename}`, // example resonse on render: http://localhost:3000/uploads/audio/1693523200000-audio.mp3
-
-        coverImageUrl: `${__dirname}/../uploads/audio/${coverFile.filename}`,
+        audioUrl: cloudAudioUrl,
+        coverImageUrl: cloudCoverUrl,
         uploadedBy: req.user._id,
-        duration: duration
+        duration: duration,
+        status: (req.user.role === 'admin' || req.user.role === 'moderator') ? 'approved' : 'pending'
       });
 
       await audio.save();
@@ -59,8 +70,39 @@
   // === Get Public Audios ===
   exports.getPublicAudios = async (req, res, next) => {
     try {
-      const audios = await Audio.find({ isPrivate: false }).populate('uploadedBy', 'name');
-      res.json({ count: audios.length, audios });
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 50;
+      const skip = (page - 1) * limit;
+
+      const query = { isPrivate: false, status: 'approved' };
+      
+      if (req.query.genre && req.query.genre !== 'all') {
+        query.genre = new RegExp(`^${req.query.genre}$`, 'i');
+      }
+      if (req.query.category && req.query.category !== 'all') {
+        query.category = new RegExp(`^${req.query.category}$`, 'i');
+      }
+      if (req.query.artist && req.query.artist !== 'all') {
+        query.singer = new RegExp(`^${req.query.artist}$`, 'i');
+      }
+      if (req.query.album && req.query.album !== 'all') {
+        query.album = new RegExp(`^${req.query.album}$`, 'i');
+      }
+
+      const totalCount = await Audio.countDocuments(query);
+      const audios = await Audio.find(query)
+        .populate('uploadedBy', 'name username profileImg')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      res.json({ 
+        count: audios.length, 
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        audios 
+      });
     } catch (err) {
       next(err);
     }
@@ -69,7 +111,7 @@
   exports.GetAllAudios = async (req,res, next) => {
     try {
       // get all audios
-      const audios = await Audio.find();
+      const audios = await Audio.find({ status: 'approved' });
       res.json({ count: audios.length, audios });
     } catch (err) {
       next(err);
@@ -86,13 +128,124 @@
     }
   };
 
+  // === Search Audios & Playlists (Unified) ===
+  exports.searchAudios = async (req, res, next) => {
+    try {
+      const query = req.query.q;
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 50;
+      const skip = (page - 1) * limit;
+      
+      if (!query || query.trim() === "") {
+        return res.status(200).json({ audios: [], playlists: [] });
+      }
+
+      // Safe regex matching
+      const regex = new RegExp(query, 'i');
+      
+      const searchCriteria = {
+        $or: [
+          { title: { $regex: regex } },
+          { singer: { $regex: regex } },
+          { genre: { $regex: regex } },
+          { album: { $regex: regex } }
+        ],
+        status: 'approved',
+        isPrivate: false
+      };
+
+      if (req.query.genre && req.query.genre !== 'all') {
+        searchCriteria.genre = new RegExp(`^${req.query.genre}$`, 'i');
+      }
+      if (req.query.category && req.query.category !== 'all') {
+        searchCriteria.category = new RegExp(`^${req.query.category}$`, 'i');
+      }
+      if (req.query.artist && req.query.artist !== 'all') {
+        searchCriteria.singer = new RegExp(`^${req.query.artist}$`, 'i');
+      }
+
+      const totalAudios = await Audio.countDocuments(searchCriteria);
+      const audios = await Audio.find(searchCriteria)
+        .populate('uploadedBy', 'name username profileImg')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      // Search Playlists unified
+      const Playlist = require('../models/playlist.Model');
+      const playlistCriteria = {
+        isPublic: true,
+        name: { $regex: regex }
+      };
+
+      const totalPlaylists = await Playlist.countDocuments(playlistCriteria);
+      const playlists = await Playlist.find(playlistCriteria)
+        .populate('owner', 'name username profileImg')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      // Search Users (Artists/Profiles)
+      const User = require('../models/user.Model');
+      const userCriteria = {
+        $or: [
+          { name: { $regex: regex } },
+          { username: { $regex: regex } }
+        ],
+        isActive: true,
+        role: 'artist'
+      };
+
+      const totalUsers = await User.countDocuments(userCriteria);
+      const users = await User.find(userCriteria)
+        .select('name username profileImg')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      // Search Albums (distinct from Audio)
+      const matchingAlbums = await Audio.distinct('album', {
+        album: { $regex: regex }
+      });
+      const albums = matchingAlbums.slice(skip, skip + limit);
+
+      res.status(200).json({
+        audios,
+        totalAudios,
+        playlists,
+        totalPlaylists,
+        users,
+        totalUsers,
+        albums,
+        totalAlbums: matchingAlbums.length,
+        currentPage: page,
+        totalPages: Math.max(Math.ceil(totalAudios / limit), Math.ceil(totalPlaylists / limit), Math.ceil(totalUsers / limit))
+      });
+    } catch (error) {
+      console.error('Error in searchAudios:', error);
+      res.status(500).json({ message: 'Search failed.', error: error.message });
+    }
+  };
+
   // === Stream Audio ===
   exports.streamAudio = async (req, res, next) => {
     try {
       const audio = await Audio.findById(req.params.id);
       if (!audio) return res.status(404).json({ message: 'Audio not found.' });
 
-      const filePath = path.join(__dirname, '..', audio.audioUrl);
+      let relativePath = audio.audioUrl;
+
+      // If the audioUrl is already a Cloudinary/external URL, just redirect the player there!
+      if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+        return res.redirect(relativePath);
+      }
+
+      // Backwards compatibility for old records that stored absolute paths
+      if (relativePath.includes('/uploads/audio/')) {
+        relativePath = '/uploads/audio/' + relativePath.split('/uploads/audio/')[1];
+      }
+
+      const filePath = path.join(__dirname, '..', relativePath);
 
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ message: 'Audio file missing on server.' });
@@ -146,14 +299,20 @@
       if (genre) audio.genre = genre.trim();
       if (isPrivate !== undefined) audio.isPrivate = isPrivate === 'true';
       if (singer) {
-        const singers = JSON.parse(singer);
-        if (Array.isArray(singers) && singers.length > 0) {
-          audio.singer = singers;
+        if (Array.isArray(singer)) {
+          audio.singer = singer.join(',');
+        } else if (typeof singer === 'string') {
+          audio.singer = singer;
         }
       }
 
       if (req.files?.cover?.length) {
-        audio.coverImageUrl = `/uploads/audio/${req.files.cover[0].filename}`;
+        try {
+          const cloudCoverUrl = await uploadToCloudinary(req.files.cover[0].path, 'streamflow/covers', 'image');
+          audio.coverImageUrl = cloudCoverUrl;
+        } catch (uploadError) {
+          console.error("Cloudinary upload failed during audio update:", uploadError);
+        }
       }
 
       await audio.save();
@@ -193,8 +352,9 @@
   };
 
   // === Admin Get All Audios ===
-  exports.GetAllAudios = async (req, res, next) => {
+  exports.getAdminAllAudios = async (req, res, next) => {
     try {
+      // Admin should see ALL audios, regardless of status
       const audios = await Audio.find().populate('uploadedBy', 'name email');
       res.json({ count: audios.length, audios });
     } catch (err) {

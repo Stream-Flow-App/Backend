@@ -3,12 +3,13 @@ const router = express.Router();
 const userController = require('../controllers/user.Controller')
 const authController = require('../controllers/auth.Controller');
 const {checkAuthenticated} = require('../middlewares/auth.Middleware');
-const { registerValidator, loginValidator } = require('../validators/user.Validators');
+const { registerValidator, loginValidator, forgetPasswordValidator } = require('../validators/user.Validators');
 const { validateRequest } = require('../middlewares/validate');
 const upload = require('../middlewares/uploadProfileImg');
 const path = require('path');
 const jwtHelper = require('../utils/jwt');
 const User = require('../models/user.Model');
+const { optimizeImage } = require('../middlewares/imageOptimizer');
 
 //global routes
 router.get('/force-new-token', async (req, res) => {
@@ -22,20 +23,22 @@ router.get('/force-new-token', async (req, res) => {
   res.send({ message: 'New refresh token set!', refreshToken });
 });
 
-router.post('/register', upload.single('profileImg'), registerValidator ,validateRequest ,authController.register);
+router.post('/register', upload.single('profileImg'), optimizeImage, registerValidator ,validateRequest ,authController.register);
 router.post('/login', loginValidator, validateRequest, authController.login);
-router.post('/forget-password', authController.forgetPassword);
+router.post('/forget-password', forgetPasswordValidator, validateRequest, authController.forgetPassword);
 router.post('/reset-password', authController.resetPassword);
 router.get('/logout', authController.logout);
+router.put('/change-password', checkAuthenticated, authController.changePassword);
 
 // router.get('/settings' , checkAuthenticated, (req,res) => {
 //   return res.sendFile(path.join(__dirname, '..', 'public', 'edit-profile.html'));
 // });
 
 router.get('/profile/data', checkAuthenticated, userController.showProfile);
-router.put('/profile', upload.single('profileImg'), checkAuthenticated, userController.editProfile);
+router.put('/profile', upload.single('profileImg'), checkAuthenticated, optimizeImage, userController.editProfile);
+router.put('/profile/playback', checkAuthenticated, userController.syncPlayback);
 // user routes
+router.get('/public/:username', userController.getPublicUser);
 router.get('/user/:username' , checkAuthenticated, userController.getUser);
-// router.get('/profile' , checkAuthenticated, userController.showProfile);
 
 module.exports = router;

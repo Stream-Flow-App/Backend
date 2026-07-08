@@ -17,6 +17,8 @@ const adminRoutes = require("./routes/admin.Routes.js");
 const userRoutes = require("./routes/user.Routes.js");
 const audioRoutes = require("./routes/audio.Routes.js");
 const adminAudioRoutes = require("./routes/admin.audio.Routes.js");
+const playlistRoutes = require("./routes/playlist.Routes.js");
+const moderationRoutes = require("./routes/moderation.Routes.js");
 
 // Connect to database
 connectDB();
@@ -95,9 +97,11 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
 }));
 
 // Routes
-app.use(adminRoutes);
-app.use(adminAudioRoutes);
+app.use("/api", adminRoutes);
+app.use("/api", adminAudioRoutes);
+app.use("/api", moderationRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/playlists", playlistRoutes);
 app.use("/audios", audioRoutes);
 
 // Error handler
