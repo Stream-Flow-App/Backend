@@ -13,7 +13,8 @@ const {
   streamAudio,
   updateAudio,
   deleteAudio,
-  searchAudios
+  searchAudios,
+  incrementListenTimes
 } = require("../controllers/audio.Controller");
 
 // // Upload page (HTML)
@@ -47,6 +48,7 @@ router.get("/category/:category/search", (req, res, next) => {
 router.get("/song/", getPublicAudios);
 router.get("/mine", checkAuthenticated, getMyAudios);
 router.get("/stream/:id", streamAudio);
+router.post("/:id/listen", incrementListenTimes);
 router.put("/:id", checkAuthenticated, validateObjectId, upload.fields([{ name: "cover", maxCount: 1 }]), optimizeImage, updateAudio);
 router.delete("/:id", checkAuthenticated, validateObjectId, deleteAudio);
 

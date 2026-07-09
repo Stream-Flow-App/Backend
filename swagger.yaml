@@ -3,40 +3,58 @@ info:
   title: Stream Flow API
   version: 1.0.0
   description: >
-    Stream Flow is a full-featured audio streaming and management app.  
-    This API provides user registration, authentication, audio uploads, streaming, and admin controls.
+    Official Stream Flow API documentation. Covers user authentication, audio streaming, playlist management, moderation, and admin controls.
 servers:
-  - url: https://stream-flow-api.onrender.com
+  - url: /api
+    description: Base API Path
 
 tags:
   - name: Auth
-  - name: Profile
+    description: User authentication and password management
   - name: Audio
+    description: Audio upload, streaming, and listen analytics
+  - name: Playlist
+    description: Curated collections of audio tracks
+  - name: Applications
+    description: Artist verification applications
+  - name: Moderation
+    description: Approval workflow for audio uploads
+  - name: Notifications
+    description: In-app user notifications
   - name: Admin
+    description: High-level administration controls
 
 paths:
-  /register:
+  /users/register:
     post:
       tags: [Auth]
-      summary: Register new user
+      summary: Register a new user
+      description: Creates a user account and returns an access token.
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/UserRegister'
       responses:
         '201':
-          description: User created
+          description: User created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '400':
+          description: Validation error or Email in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /login:
+  /users/login:
     post:
       tags: [Auth]
       summary: Login user
+      description: Authenticates user via email/username and sets a session.
       requestBody:
         required: true
         content:
@@ -45,93 +63,137 @@ paths:
               $ref: '#/components/schemas/UserLogin'
       responses:
         '200':
-          description: Login success
+          description: Login successful
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  accessToken:
-                    type: string
-                  refreshToken:
-                    type: string
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '400':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Account suspended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /logout:
-    get:
-      tags: [Auth]
-      summary: Logout user
-      responses:
-        '200':
-          description: Logout success
-
-  /forgot-password:
+  /users/forget-password:
     post:
       tags: [Auth]
-      summary: Send password reset link
+      summary: Initiate password reset
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [email]
               properties:
                 email:
                   type: string
+                  format: email
       responses:
         '200':
           description: Reset link sent
+        '404':
+          description: User not found
 
-  /reset-password:
+  /users/reset-password:
     post:
       tags: [Auth]
-      summary: Reset password
+      summary: Reset password with token
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [token, password]
               properties:
                 token:
                   type: string
                 password:
                   type: string
+                  minLength: 6
       responses:
         '200':
           description: Password reset successful
+        '400':
+          description: Invalid token or same old password
 
-  /profile:
-    get:
-      tags: [Profile]
-      summary: Get current user profile
-      responses:
-        '200':
-          description: User profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserResponse'
+  /users/change-password:
     put:
-      tags: [Profile]
-      summary: Update current user profile
+      tags: [Auth]
+      summary: Change password (In-App)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserUpdate'
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 6
       responses:
         '200':
-          description: Updated profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserResponse'
+          description: Password changed successfully
+        '400':
+          description: Incorrect current password
+        '401':
+          description: Not authenticated
 
-  /upload/audio:
+  /users/logout:
+    get:
+      tags: [Auth]
+      summary: Logout current session
+      responses:
+        '200':
+          description: Logged out successfully
+
+  /users/profile/playback:
+    put:
+      tags: [Auth]
+      summary: Sync cross-device playback state
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [songId, currentTime]
+              properties:
+                songId:
+                  type: string
+                currentTime:
+                  type: number
+      responses:
+        '200':
+          description: Playback state synced
+        '401':
+          description: Not authenticated
+
+  /audio/upload:
     post:
       tags: [Audio]
-      summary: Upload new audio
+      summary: Upload new audio track
+      description: Uploads mp3/wav and cover image to Cloudinary. Must be authenticated.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -140,214 +202,500 @@ paths:
               $ref: '#/components/schemas/AudioUpload'
       responses:
         '201':
-          description: Audio uploaded
+          description: Audio uploaded successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Audio'
+                type: object
+                properties:
+                  message:
+                    type: string
+                  audio:
+                    $ref: '#/components/schemas/AudioResponse'
+        '400':
+          description: Validation error or missing files
+        '401':
+          description: Not authenticated
 
-  /stream/{id}:
+  /audio/search:
     get:
       tags: [Audio]
-      summary: Stream an audio file by ID
+      summary: Global unified search
+      description: Searches across Audios, Playlists, Users, and Albums concurrently.
       parameters:
-        - in: path
-          name: id
+        - name: q
+          in: query
+          required: true
           schema:
             type: string
-          required: true
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: genre
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: artist
+          in: query
+          schema:
+            type: string
       responses:
         '200':
-          description: Audio streaming
-
-  /admin/users:
-    get:
-      tags: [Admin]
-      summary: Get all users
-      responses:
-        '200':
-          description: List of users
+          description: Search results
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserResponse'
+                $ref: '#/components/schemas/SearchResults'
+        '400':
+          description: Search query missing
 
-  /admin/users/{username}:
-    put:
-      tags: [Admin]
-      summary: Update user by username
+  /audio/{id}/listen:
+    post:
+      tags: [Audio]
+      summary: Increment listen times analytics
       parameters:
-        - in: path
-          name: username
+        - name: id
+          in: path
+          required: true
           schema:
             type: string
-          required: true
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                listenedSeconds:
+                  type: number
+                  default: 0
+      responses:
+        '200':
+          description: Listen time incremented
+        '404':
+          description: Audio not found
+
+  /audio/grouped-by-artist:
+    get:
+      tags: [Audio]
+      summary: Get Audios Grouped By Artist
+      responses:
+        '200':
+          description: Grouped list of audios
+
+  /playlists:
+    get:
+      tags: [Playlist]
+      summary: Get all playlists for current user
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User playlists retrieved
+    post:
+      tags: [Playlist]
+      summary: Create a new playlist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserUpdate'
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isPublic:
+                  type: boolean
+                isAlbum:
+                  type: boolean
+                audio:
+                  type: array
+                  items:
+                    type: string
       responses:
-        '200':
-          description: User updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserResponse'
-    delete:
-      tags: [Admin]
-      summary: Deactivate user by username
+        '201':
+          description: Playlist created
+        '400':
+          description: Playlist name missing
+
+  /playlists/{id}:
+    get:
+      tags: [Playlist]
+      summary: Get playlist by ID
       parameters:
-        - in: path
-          name: username
+        - name: id
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       responses:
         '200':
-          description: User deactivated
+          description: Playlist retrieved
+        '403':
+          description: Not authorized to view
+        '404':
+          description: Playlist not found
+
+  /playlists/{id}/songs:
+    post:
+      tags: [Playlist]
+      summary: Add song to playlist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [songId]
+              properties:
+                songId:
+                  type: string
+      responses:
+        '200':
+          description: Song added
+        '400':
+          description: Song already exists
+        '403':
+          description: Not authorized
+
+  /playlists/{id}/songs/{songId}:
+    delete:
+      tags: [Playlist]
+      summary: Remove song from playlist
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: songId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Song removed
+        '400':
+          description: Invalid IDs
+
+  /applications/apply:
+    post:
+      tags: [Applications]
+      summary: Submit Artist Application
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bio]
+              properties:
+                bio:
+                  type: string
+                  minLength: 20
+                socialLinks:
+                  type: object
+                portfolioLinks:
+                  type: object
+      responses:
+        '201':
+          description: Application submitted
+        '400':
+          description: Already applied
+
+  /moderation/audios/pending:
+    get:
+      tags: [Moderation]
+      summary: Get Pending Audios
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Pending audios retrieved
+
+  /moderation/audios/{id}/status:
+    put:
+      tags: [Moderation]
+      summary: Update Audio Status
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [approved, pending, rejected]
+      responses:
+        '200':
+          description: Status updated
+        '400':
+          description: Invalid status
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Get My Notifications
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of notifications
+
+  /notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Notifications marked read
+
+  /admin/users/{username}/ban:
+    put:
+      tags: [Admin]
+      summary: Ban or Suspend User
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [durationHours]
+              properties:
+                durationHours:
+                  type: string
+                  example: "24"
+      responses:
+        '200':
+          description: User ban status updated
+
+  /admin/users/{username}/role:
+    put:
+      tags: [Admin]
+      summary: Update User Role
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [user, artist, moderator, admin]
+      responses:
+        '200':
+          description: User role updated
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              msg:
+                type: string
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        result:
+          type: integer
+        metadata:
+          type: object
+          properties:
+            accessToken:
+              type: string
+        data:
+          type: object
+
     UserRegister:
       type: object
+      required: [name, username, email, password]
       properties:
         name:
           type: string
-          example: John Doe
-          description: Full name, min 2 chars
         username:
           type: string
-          example: johndoe
-          description: Unique username
         email:
           type: string
-          example: john@example.com
-          description: User's email
+          format: email
         password:
           type: string
-          example: StrongP@ssw0rd
-          description: Min 6 chars, must include uppercase, lowercase, special char
-        phone:
+          minLength: 6
+        profileImg:
           type: string
-          example: "+123456789"
-          description: Optional phone number
+          format: binary
+
     UserLogin:
       type: object
+      required: [email, password]
       properties:
         email:
           type: string
-          example: john@example.com
         password:
           type: string
-          example: StrongP@ssw0rd
-    UserUpdate:
-      type: object
-      properties:
-        name:
-          type: string
-          example: John Smith
-        username:
-          type: string
-          example: johnsmith
-        phone:
-          type: string
-          example: "+987654321"
-        profileImg:
-          type: string
-          example: "profile123.jpg"
-        password:
-          type: string
-          example: "NewP@ssw0rd"
-        role:
-          type: string
-          enum: [user, admin]
-          example: admin
-
-    UserResponse:
-      type: object
-      properties:
-        _id:
-          type: string
-          example: 64c4e6f2b1a2f2a5cabc1234
-        name:
-          type: string
-          example: John Doe
-        username:
-          type: string
-          example: johndoe
-        email:
-          type: string
-          example: john@example.com
-        phone:
-          type: string
-          example: "+123456789"
-        profileImg:
-          type: string
-          example: "profile.jpg"
-        role:
-          type: string
-          example: user
-        isActive:
+        remember:
           type: boolean
-          example: true
-        lastLogin:
-          type: string
-          format: date-time
-          example: "2025-08-04T10:00:00Z"
 
     AudioUpload:
       type: object
+      required: [title, genre, duration, singer, audio, cover]
       properties:
         title:
           type: string
-          example: "Summer Vibes"
         genre:
           type: string
-          example: "Pop"
+        category:
+          type: string
+          enum: [song, podcast, audiobook]
+        duration:
+          type: number
+        singer:
+          type: string
+        isPrivate:
+          type: boolean
         audio:
           type: string
           format: binary
         cover:
           type: string
           format: binary
-        isPrivate:
-          type: boolean
-          example: false
 
-    Audio:
+    AudioResponse:
       type: object
       properties:
         _id:
           type: string
-          example: 64c4e6f2b1a2f2a5cabc5678
         title:
           type: string
-          example: "Summer Vibes"
         genre:
           type: string
-          example: "Pop"
         audioUrl:
           type: string
-          example: "/uploads/audio/12345.mp3"
         coverImageUrl:
           type: string
-          example: "/uploads/audio/12345.jpg"
-        isPrivate:
-          type: boolean
-          example: false
-        singer:
+        listenTimes:
+          type: number
+        totalListenSeconds:
+          type: number
+
+    SearchResults:
+      type: object
+      properties:
+        audios:
+          type: array
+          items:
+            type: object
+        playlists:
+          type: array
+          items:
+            type: object
+        users:
+          type: array
+          items:
+            type: object
+        albums:
           type: array
           items:
             type: string
-          example: ["Artist A", "Artist B"]
-        uploadedBy:
-          type: string
-          example: 64c4e6f2b1a2f2a5cabc1234
-        createdAt:
-          type: string
-          format: date-time
-          example: "2025-08-04T10:00:00Z"
+        totalAudios:
+          type: integer
+        totalPlaylists:
+          type: integer
+        totalUsers:
+          type: integer
+        totalAlbums:
+          type: integer
+        currentPage:
+          type: integer
+        totalPages:
+          type: integer
+

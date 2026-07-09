@@ -157,6 +157,22 @@ Permanently deletes an audio file from the platform. Users can only delete their
 - `200 OK` - Audio deleted successfully.
 - `403 Forbidden` - Attempting to delete another user's audio.
 
+### 9. Increment Listen Stats
+Increments the listen count and optionally the total listen duration for an audio file. Used for generating artist analytics.
+
+- **URL:** `POST /api/audios/:id/listen`
+- **Content-Type:** `application/json`
+- **Auth Required:** No
+
+#### Request Body (Optional)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `listenedSeconds` | number | No | The exact number of seconds the user listened to the track. Used to calculate "Listen Hours". |
+
+#### Responses
+- `200 OK` - Listen stats updated successfully (`listenTimes` and `totalListenSeconds` returned).
+- `404 Not Found` - Audio document missing.
+
 ---
 
 ## 👑 Admin Endpoints

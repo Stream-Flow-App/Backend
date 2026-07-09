@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 // Create a new playlist
 const createPlaylist = async (req, res) => {
   try {
-    const { name, description, isPublic, audio } = req.body;
+    const { name, description, isPublic, isAlbum, audio } = req.body;
     const userId = req.user.id; // From checkAuthenticated middleware
 
     if (!name) {
@@ -16,6 +16,8 @@ const createPlaylist = async (req, res) => {
       name,
       description,
       isPublic: isPublic || false,
+      isAlbum: isAlbum || false,
+      status: isAlbum ? 'pending' : 'approved',
       audio: Array.isArray(audio) ? audio : [],
       owner: userId
     });
@@ -56,8 +58,13 @@ const getPlaylistById = async (req, res) => {
     }
 
     // Check if user owns it or if it's public
-    if (!playlist.isPublic && (!userId || playlist.owner._id.toString() !== userId)) {
-      return res.status(403).json({ success: false, message: "Not authorized to view this playlist" });
+    if (playlist.owner._id.toString() !== userId) {
+      if (!playlist.isPublic) {
+        return res.status(403).json({ success: false, message: "Not authorized to view this playlist" });
+      }
+      if (playlist.status !== 'approved') {
+        return res.status(403).json({ success: false, message: "Playlist is awaiting approval" });
+      }
     }
 
     res.status(200).json({ success: true, playlist });
@@ -218,6 +225,65 @@ const removeSongFromPlaylist = async (req, res) => {
   }
 };
 
+// === Admin Get Pending Albums ===
+const getPendingAlbums = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const skip = (page - 1) * limit;
+
+    const albums = await PlaylistModel.find({ isAlbum: true, status: 'pending' })
+      .populate('owner', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalCount = await PlaylistModel.countDocuments({ isAlbum: true, status: 'pending' });
+
+    res.json({
+      success: true,
+      count: albums.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
+      albums
+    });
+  } catch (error) {
+    console.error("Error fetching pending albums:", error);
+    res.status(500).json({ success: false, message: "Server error fetching pending albums" });
+  }
+};
+
+// === Admin Approve Album ===
+const approveAlbum = async (req, res) => {
+  try {
+    const album = await PlaylistModel.findById(req.params.id);
+    if (!album) return res.status(404).json({ success: false, message: 'Album not found.' });
+    
+    album.status = 'approved';
+    await album.save();
+    res.json({ success: true, message: 'Album approved successfully.', album });
+  } catch (error) {
+    console.error("Error approving album:", error);
+    res.status(500).json({ success: false, message: "Server error approving album" });
+  }
+};
+
+// === Admin Reject Album ===
+const rejectAlbum = async (req, res) => {
+  try {
+    const album = await PlaylistModel.findById(req.params.id);
+    if (!album) return res.status(404).json({ success: false, message: 'Album not found.' });
+    
+    album.status = 'rejected';
+    await album.save();
+    res.json({ success: true, message: 'Album rejected successfully.', album });
+  } catch (error) {
+    console.error("Error rejecting album:", error);
+    res.status(500).json({ success: false, message: "Server error rejecting album" });
+  }
+};
+
 module.exports = {
   createPlaylist,
   getUserPlaylists,
@@ -225,5 +291,8 @@ module.exports = {
   updatePlaylist,
   deletePlaylist,
   addSongToPlaylist,
-  removeSongFromPlaylist
+  removeSongFromPlaylist,
+  getPendingAlbums,
+  approveAlbum,
+  rejectAlbum
 };

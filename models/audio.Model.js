@@ -61,6 +61,14 @@ const audioSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  listenTimes: {
+    type: Number,
+    default: 0
+  },
+  totalListenSeconds: {
+    type: Number,
+    default: 0
   }
 });
 

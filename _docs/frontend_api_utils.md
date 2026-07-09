@@ -72,3 +72,18 @@ All requests flow through two central `axios` instances:
 ### `addSongToPlaylist(playlistId, songId)` / `removeSongFromPlaylist(playlistId, songId)`
 - **Purpose:** Dynamically pushes or pulls a song from the `audio` array of a specific playlist.
 - **Backend Routes:** `POST /api/playlists/:id/songs`, `DELETE /api/playlists/:id/songs/:songId`
+
+---
+
+## 5. Artist Applications & Notifications
+
+While most of our fetch logic is abstracted in the `client/src/utils/` folder, the newly introduced Artist Applications and Notification systems are designed to be self-contained within their respective components (`ArtistApplicationForm.jsx`, `AdminApplicationsList.jsx`, and `NotificationBell.jsx`).
+
+### Artist Application
+- **Submit Application:** Uses `POST /api/applications/apply`. Sends `bio`, `socialLinks`, and `portfolioLinks`.
+- **Check Status:** Uses `GET /api/applications/mine` when the `ArtistApplicationForm` mounts to see if the user is already pending or rejected.
+- **Admin Review:** Uses `GET /api/applications/admin` to populate the `AdminApplicationsList`, and `PATCH /api/applications/admin/:id/review` to accept or reject them.
+
+### Notifications
+- **Fetch Unread/Read:** The `NotificationBell` component automatically queries `GET /api/notifications` every 60 seconds (or on manual open) to pull down the user's latest in-app alerts.
+- **Marking as Read:** Uses `PATCH /api/notifications/:id/read` to individually mark notifications, or `PATCH /api/notifications/read-all` to clear the entire queue.

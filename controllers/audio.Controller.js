@@ -175,6 +175,7 @@
       const Playlist = require('../models/playlist.Model');
       const playlistCriteria = {
         isPublic: true,
+        status: 'approved',
         name: { $regex: regex }
       };
 
@@ -357,6 +358,87 @@
       // Admin should see ALL audios, regardless of status
       const audios = await Audio.find().populate('uploadedBy', 'name email');
       res.json({ count: audios.length, audios });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // === Admin Get Pending Audios ===
+  exports.getPendingAudios = async (req, res, next) => {
+    try {
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 50;
+      const skip = (page - 1) * limit;
+
+      const audios = await Audio.find({ status: 'pending' })
+        .populate('uploadedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+        
+      const totalCount = await Audio.countDocuments({ status: 'pending' });
+
+      res.json({
+        count: audios.length,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        audios
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // === Admin Approve Audio ===
+  exports.approveAudio = async (req, res, next) => {
+    try {
+      const audio = await Audio.findById(req.params.id);
+      if (!audio) return res.status(404).json({ message: 'Audio not found.' });
+      
+      audio.status = 'approved';
+      await audio.save();
+      res.json({ message: 'Audio approved successfully.', audio });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // === Admin Reject Audio ===
+  exports.rejectAudio = async (req, res, next) => {
+    try {
+      const audio = await Audio.findById(req.params.id);
+      if (!audio) return res.status(404).json({ message: 'Audio not found.' });
+      
+      audio.status = 'rejected';
+      await audio.save();
+      res.json({ message: 'Audio rejected successfully.', audio });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  // === Increment Listen Times and Total Listen Seconds ===
+  exports.incrementListenTimes = async (req, res, next) => {
+    try {
+      const audioId = req.params.id;
+      const listenedSeconds = Number(req.body.listenedSeconds) || 0;
+      
+      const audio = await Audio.findByIdAndUpdate(
+        audioId,
+        { $inc: { listenTimes: 1, totalListenSeconds: listenedSeconds } },
+        { new: true }
+      );
+
+      if (!audio) {
+        return res.status(404).json({ message: 'Audio not found' });
+      }
+
+      res.status(200).json({ 
+        message: 'Listen time incremented', 
+        listenTimes: audio.listenTimes,
+        totalListenSeconds: audio.totalListenSeconds
+      });
     } catch (err) {
       next(err);
     }

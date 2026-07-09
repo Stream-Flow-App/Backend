@@ -18,7 +18,10 @@ const userRoutes = require("./routes/user.Routes.js");
 const audioRoutes = require("./routes/audio.Routes.js");
 const adminAudioRoutes = require("./routes/admin.audio.Routes.js");
 const playlistRoutes = require("./routes/playlist.Routes.js");
+const adminPlaylistRoutes = require("./routes/admin.playlist.Routes.js");
 const moderationRoutes = require("./routes/moderation.Routes.js");
+const applicationRoutes = require("./routes/application.Routes.js");
+const notificationRoutes = require("./routes/notification.Routes.js");
 
 // Connect to database
 connectDB();
@@ -71,11 +74,12 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Documentation markdown route
 app.get("/", (req, res) => {
   try {
-    const readmePath = path.join(__dirname, "README.md");
+    const docsPath = path.join(__dirname, "_docs", "FULL_API_REFERENCE.md");
     const indexPath = path.join(__dirname, "public", "doc.html");
 
-    const readmeContent = fs.readFileSync(readmePath, "utf8");
-    const htmlContent = marked(readmeContent);
+    const docsContent = fs.readFileSync(docsPath, "utf8");
+    // Parse markdown (assuming marked.parse or similar, marked() alone might be deprecated depending on version but let's stick to what's there)
+    const htmlContent = marked.parse ? marked.parse(docsContent) : marked(docsContent);
     const template = fs.readFileSync(indexPath, "utf8");
 
     const finalHtml = template.replace("{{CONTENT}}", htmlContent);
@@ -99,9 +103,12 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
 // Routes
 app.use("/api", adminRoutes);
 app.use("/api", adminAudioRoutes);
+app.use("/api", adminPlaylistRoutes);
 app.use("/api", moderationRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/playlists", playlistRoutes);
+app.use("/api/applications", applicationRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/audios", audioRoutes);
 
 // Error handler
