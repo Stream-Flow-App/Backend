@@ -238,6 +238,16 @@ const removeSongFromPlaylist = async (req, res) => {
     // Remove song
     playlist.audio = playlist.audio.filter(audioId => audioId.toString() !== songId);
     
+    // Check if the removed song was the cover. If so, and there are other songs, update cover
+    if (playlist.audio.length > 0) {
+       const newFirstSong = await AudioModel.findById(playlist.audio[0]);
+       if (newFirstSong) {
+          playlist.cover = newFirstSong.coverImageUrl || "No Cover";
+       }
+    } else {
+       playlist.cover = "No Cover";
+    }
+
     await playlist.save();
 
     const updatedPlaylist = await PlaylistModel.findById(id).populate('audio');
@@ -246,6 +256,46 @@ const removeSongFromPlaylist = async (req, res) => {
   } catch (error) {
     console.error("Error removing song from playlist:", error);
     res.status(500).json({ success: false, message: "Server error removing song from playlist" });
+  }
+};
+
+// Clone a playlist
+const clonePlaylist = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid playlist ID" });
+    }
+
+    const originalPlaylist = await PlaylistModel.findById(id);
+
+    if (!originalPlaylist) {
+      return res.status(404).json({ success: false, message: "Playlist not found" });
+    }
+
+    if (!originalPlaylist.isPublic && originalPlaylist.owner.toString() !== userId) {
+      return res.status(403).json({ success: false, message: "Not authorized to clone this playlist" });
+    }
+
+    const newPlaylist = await PlaylistModel.create({
+      name: `${originalPlaylist.name} (Copy)`,
+      description: originalPlaylist.description,
+      isPublic: false,
+      isAlbum: false,
+      status: 'approved',
+      audio: originalPlaylist.audio,
+      owner: userId,
+      cover: originalPlaylist.cover
+    });
+
+    const populatedPlaylist = await PlaylistModel.findById(newPlaylist._id).populate('audio');
+
+    res.status(201).json({ success: true, playlist: populatedPlaylist });
+  } catch (error) {
+    console.error("Error cloning playlist:", error);
+    res.status(500).json({ success: false, message: "Server error cloning playlist" });
   }
 };
 
@@ -319,5 +369,6 @@ module.exports = {
   removeSongFromPlaylist,
   getPendingAlbums,
   approveAlbum,
-  rejectAlbum
+  rejectAlbum,
+  clonePlaylist
 };

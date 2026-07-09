@@ -8,7 +8,8 @@ const {
   updatePlaylist,
   deletePlaylist,
   addSongToPlaylist,
-  removeSongFromPlaylist
+  removeSongFromPlaylist,
+  clonePlaylist
 } = require('../controllers/playlist.Controller');
 const { checkAuthenticated, checkOptionalAuthenticated } = require('../middlewares/auth.Middleware');
 
@@ -28,6 +29,9 @@ router.get('/:id', checkOptionalAuthenticated, getPlaylistById);
 
 // Update a specific playlist
 router.put('/:id', checkAuthenticated, updatePlaylist);
+
+// Clone a specific playlist
+router.post('/clone/:id', checkAuthenticated, clonePlaylist);
 
 // Delete a specific playlist
 router.delete('/:id', checkAuthenticated, deletePlaylist);
