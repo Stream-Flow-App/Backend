@@ -44,8 +44,9 @@ const corsOptions = {
       'https://stream-flow-ui.vercel.app',
       'https://stream-flow-sand.vercel.app',
       'https://stream-flow-ten.vercel.app',
-      // Add your production domain here when deploying
-      // 'https://yourproductiondomain.com'
+      // Production
+      'https://streamflowonline-rose.vercel.app',
+      'https://backend-q3z0.onrender.com',
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {
