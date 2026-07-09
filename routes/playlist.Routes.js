@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   createPlaylist,
   getUserPlaylists,
+  getPublicPlaylists,
   getPlaylistById,
   updatePlaylist,
   deletePlaylist,
@@ -12,6 +13,9 @@ const {
 const { checkAuthenticated, checkOptionalAuthenticated } = require('../middlewares/auth.Middleware');
 
 // Base route: /api/playlists
+
+// Get all public playlists
+router.get('/public', getPublicPlaylists);
 
 // Get all playlists for the authenticated user
 router.get('/me', checkAuthenticated, getUserPlaylists);

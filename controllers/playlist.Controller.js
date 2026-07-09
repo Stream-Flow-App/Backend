@@ -41,6 +41,30 @@ const getUserPlaylists = async (req, res) => {
   }
 };
 
+// Get all public playlists
+const getPublicPlaylists = async (req, res) => {
+  try {
+    const playlists = await PlaylistModel.find({ isPublic: true, status: 'approved' })
+      .populate('audio')
+      .populate('owner', 'name username profileImg')
+      .sort({ createdAt: -1 });
+
+    const modifiedPlaylists = playlists.map(pl => {
+      const p = pl.toObject();
+      if (p.audio && p.audio.length > 0) {
+        const lastSong = p.audio[p.audio.length - 1];
+        p.cover = lastSong.coverImageUrl || p.cover;
+      }
+      return p;
+    });
+
+    res.status(200).json({ success: true, playlists: modifiedPlaylists });
+  } catch (error) {
+    console.error("Error fetching public playlists:", error);
+    res.status(500).json({ success: false, message: "Server error fetching public playlists" });
+  }
+};
+
 // Get a specific playlist by ID
 const getPlaylistById = async (req, res) => {
   try {
@@ -287,6 +311,7 @@ const rejectAlbum = async (req, res) => {
 module.exports = {
   createPlaylist,
   getUserPlaylists,
+  getPublicPlaylists,
   getPlaylistById,
   updatePlaylist,
   deletePlaylist,
