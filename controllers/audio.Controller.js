@@ -121,7 +121,9 @@
   // === Get My Audios ===
   exports.getMyAudios = async (req, res, next) => {
     try {
-      const audios = await Audio.find({ uploadedBy: req.user._id });
+      const audios = await Audio.find({ uploadedBy: req.user._id })
+        .populate('uploadedBy', 'name username profileImg')
+        .sort({ createdAt: -1 });
       res.json({ count: audios.length, audios });
     } catch (err) {
       next(err);
