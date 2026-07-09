@@ -138,16 +138,12 @@ exports.editProfile = async function (req, res) {
 
   await user.save();
 
+  // Fetch fresh user data to return complete object
+  const updatedUser = await User.findById(user._id).select('-password').lean();
+
   res.status(200).json({
     message: 'Profile updated!',
-    user: {
-      name: user.name,
-      username: user.username,
-      phone: user.phone,
-      role: user.role,
-      profileImg: user.profileImg,
-      lastPlayback: user.lastPlayback
-    }
+    user: updatedUser
   });
 };
 
