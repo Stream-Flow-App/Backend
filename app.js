@@ -100,6 +100,16 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
   customSiteTitle: "StreamFlow API Documentation",
 }));
 
+
+// Health check — used by Render and uptime monitors
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Routes
 app.use("/api", adminRoutes);
 app.use("/api", adminAudioRoutes);
@@ -110,6 +120,7 @@ app.use("/api/playlists", playlistRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/audios", audioRoutes);
+
 
 // Error handler
 app.use((err, req, res, next) => {
