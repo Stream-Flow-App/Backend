@@ -173,3 +173,58 @@ exports.syncPlayback = async function (req, res) {
     res.status(500).json({ message: 'Something went wrong while syncing playback state' });
   }
 };
+
+exports.toggleFavorite = async function (req, res) {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated!' });
+    
+    const { songId } = req.params;
+    if (!songId) return res.status(400).json({ message: 'songId is required' });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const isFavorite = user.favorites.includes(songId);
+    
+    if (isFavorite) {
+      user.favorites.pull(songId);
+    } else {
+      user.favorites.push(songId);
+    }
+    
+    await user.save();
+    
+    res.status(200).json({ 
+      message: isFavorite ? 'Removed from favorites' : 'Added to favorites',
+      isFavorite: !isFavorite 
+    });
+  } catch (err) {
+    console.error('Error toggling favorite:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.getFavorites = async function (req, res) {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated!' });
+    
+    const user = await User.findById(req.user._id).populate({
+      path: 'favorites',
+      match: { status: 'approved', isPrivate: false }, // Only return approved public songs
+      populate: {
+        path: 'uploadedBy',
+        select: 'name username profileImg'
+      }
+    });
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    // Filter out nulls in case some favorites were deleted or unapproved
+    const validFavorites = user.favorites.filter(song => song != null);
+    
+    res.status(200).json({ favorites: validFavorites });
+  } catch (err) {
+    console.error('Error fetching favorites:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

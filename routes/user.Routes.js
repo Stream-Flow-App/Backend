@@ -41,4 +41,8 @@ router.put('/profile/playback', checkAuthenticated, userController.syncPlayback)
 router.get('/public/:username', userController.getPublicUser);
 router.get('/user/:username' , checkAuthenticated, userController.getUser);
 
+// favorites
+router.get('/favorites', checkAuthenticated, userController.getFavorites);
+router.post('/favorites/:songId', checkAuthenticated, userController.toggleFavorite);
+
 module.exports = router;
