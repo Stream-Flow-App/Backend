@@ -280,7 +280,7 @@ const clonePlaylist = async (req, res) => {
     }
 
     const newPlaylist = await PlaylistModel.create({
-      name: `${originalPlaylist.name} (Copy)`,
+      name: originalPlaylist.name,
       description: originalPlaylist.description,
       isPublic: false,
       isAlbum: false,
