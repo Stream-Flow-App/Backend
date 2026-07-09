@@ -860,3 +860,27 @@ Returns all audio tracks regardless of status.
 | `GET` | `/api/admin/albums/pending` | admin/mod | Get pending albums |
 | `PATCH` | `/api/admin/album/:id/approve` | admin/mod | Approve album |
 | `PATCH` | `/api/admin/album/:id/reject` | admin/mod | Reject album |
+
+---
+
+## 📧 9. Contact API
+
+Base path: `/api/contact`
+
+### 9.1 Send Contact Message
+
+**Endpoint:** `POST /api/contact`
+**Authentication:** None
+**Content-Type:** `application/json`
+
+Submits a message from the contact form to the support email via Nodemailer.
+
+**Request Body (JSON):**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `name` | String | Yes | Name of sender |
+| `email` | String | Yes | Email address of sender |
+| `subject` | String | Yes | Subject of the message |
+| `message` | String | Yes | Body of the message |
+
+**Response `200 OK`:** `{ "success": true, "message": "Message sent successfully." }`
