@@ -57,8 +57,8 @@ const corsOptions = {
     }
   },
   credentials: true, // Allow credentials (cookies, authorization headers)
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-csrf-token', 'Refresh-Token'],
 };
 
 // Apply CORS middleware with options
