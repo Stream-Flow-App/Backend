@@ -41,6 +41,10 @@ const PlaylistSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'approved', 'rejected'],
     default: 'approved', // Normal playlists are auto-approved, albums go to pending
+  },
+  originalId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Playlist",
   }
 },
 { timestamps:true });

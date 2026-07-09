@@ -286,8 +286,9 @@ const clonePlaylist = async (req, res) => {
       isAlbum: false,
       status: 'approved',
       audio: originalPlaylist.audio,
+      cover: originalPlaylist.cover,
       owner: userId,
-      cover: originalPlaylist.cover
+      originalId: originalPlaylist._id
     });
 
     const populatedPlaylist = await PlaylistModel.findById(newPlaylist._id).populate('audio');
