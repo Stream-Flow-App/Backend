@@ -229,6 +229,52 @@ Returns publicly available data for any user by username, including their approv
 
 ---
 
+### 2.5 Get User Favorites
+
+**Endpoint:** `GET /api/users/favorites`
+**Authentication:** Required
+
+Returns a list of the user's favorite songs. Only includes songs that are `approved` and `isPrivate: false`.
+
+#### Response `200 OK`
+```json
+{
+  "favorites": [
+    {
+      "_id": "...",
+      "title": "Bad Guy",
+      "singer": ["Billie Eilish"],
+      "audioUrl": "...",
+      "coverImageUrl": "...",
+      "duration": 194,
+      "uploadedBy": { "name": "Billie", "username": "billieeilish", "profileImg": "..." }
+    }
+  ]
+}
+```
+
+---
+
+### 2.6 Toggle Favorite Song
+
+**Endpoint:** `POST /api/users/favorites/:songId`
+**Authentication:** Required
+
+Adds a song to the user's favorites if it isn't already, or removes it if it is.
+
+**URL Parameter:** `:songId` - Valid ObjectId of the song.
+
+#### Response `200 OK`
+```json
+{
+  "message": "Added to favorites",
+  "isFavorite": true
+}
+```
+*Note: `message` toggles between "Added to favorites" and "Removed from favorites", and `isFavorite` reflects the new state.*
+
+---
+
 ## 🎵 3. Audio & Streaming API
 
 > [!NOTE]
