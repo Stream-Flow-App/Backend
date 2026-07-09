@@ -528,6 +528,15 @@ If the playlist has no cover art, it automatically inherits the first song's `co
 
 ---
 
+### 4.8 Clone Playlist
+
+Duplicates an existing public playlist or album into the user's personal library.
+
+**Endpoint:** `POST /api/playlists/clone/:id`
+**Authentication:** Required
+
+---
+
 ## 📝 5. Artist Applications API
 
 Base path: `/api/applications`

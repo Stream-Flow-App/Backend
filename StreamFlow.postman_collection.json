@@ -2914,6 +2914,56 @@
                             ]
                         }
                     ]
+                },
+                {
+                    "id": "7983cd3c-62fa-497d-9f92-d331fed7d135",
+                    "name": "Clone a public playlist to user library",
+                    "request": {
+                        "name": "Clone a public playlist to user library",
+                        "description": {
+                            "content": "Clone a public playlist to user library",
+                            "type": "text/plain"
+                        },
+                        "url": {
+                            "path": [
+                                "playlists",
+                                "clone",
+                                ":id"
+                            ],
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "query": [],
+                            "variable": [
+                                {
+                                    "description": {
+                                        "content": "(Required) ",
+                                        "type": "text/plain"
+                                    },
+                                    "key": "id",
+                                    "value": ""
+                                }
+                            ]
+                        },
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "method": "POST",
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{bearerToken}}",
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },

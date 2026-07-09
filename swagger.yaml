@@ -354,6 +354,29 @@ paths:
         '404':
           description: Playlist not found
 
+  /playlists/clone/{id}:
+    post:
+      tags: [Playlist]
+      summary: Clone a public playlist to user library
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Playlist cloned
+        '400':
+          description: Invalid playlist ID
+        '403':
+          description: Not authorized to clone
+        '404':
+          description: Playlist not found
+
   /playlists/{id}/songs:
     post:
       tags: [Playlist]
