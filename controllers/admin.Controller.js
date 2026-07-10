@@ -3,15 +3,27 @@ const hash = require("../utils/hash");
 
 exports.getUsers = async function (req, res) {
   try {
-    const { search = '', page = 1, limit = 10 } = req.query;
+    const { search = '', page = 1, limit = 10, userType = 'users' } = req.query;
     
     let query = {
       _id: { $ne: req.user._id } // Exclude the current logged-in user
     };
     
+    if (userType === 'mods') {
+      query.role = { $in: ['admin', 'moderator'] };
+    } else if (userType === 'artists') {
+      query.role = 'artist';
+    } else {
+      query.role = 'user';
+    }
+    
     if (req.user.role === 'moderator') {
       // Moderators cannot see admins
-      query.role = { $ne: 'admin' };
+      if (userType === 'mods') {
+        query.role = 'moderator';
+      } else if (!query.role) {
+        query.role = { $ne: 'admin' };
+      }
     }
     
     if (search) {
