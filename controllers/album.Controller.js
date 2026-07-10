@@ -2,6 +2,7 @@ const AlbumModel = require("../models/album.Model");
 const AudioModel = require("../models/audio.Model");
 const PlaylistModel = require("../models/playlist.Model");
 const mongoose = require("mongoose");
+const { uploadToCloudinary } = require('../utils/cloudinary');
 
 // Create a new album
 const createAlbum = async (req, res) => {
@@ -21,7 +22,12 @@ const createAlbum = async (req, res) => {
     
     let cover = "No Cover";
     if (req.file) {
-      cover = req.file.path.replace(/\\/g, '/');
+      try {
+        cover = await uploadToCloudinary(req.file.path, 'streamflow/covers', 'image');
+      } catch (uploadError) {
+        console.error("Cloudinary upload failed for album cover:", uploadError);
+        cover = "/uploads/audio/" + req.file.filename; // Fallback
+      }
     } else if (coverUrl) {
       cover = coverUrl;
     }
@@ -154,7 +160,12 @@ const updateAlbum = async (req, res) => {
     if (audioArray !== undefined && audioArray.length > 0) album.audio = audioArray;
     
     if (req.file) {
-      album.cover = req.file.path.replace(/\\/g, '/');
+      try {
+        album.cover = await uploadToCloudinary(req.file.path, 'streamflow/covers', 'image');
+      } catch (uploadError) {
+        console.error("Cloudinary upload failed for album cover update:", uploadError);
+        album.cover = "/uploads/audio/" + req.file.filename; // Fallback
+      }
     } else if (coverUrl) {
       album.cover = coverUrl;
     }
