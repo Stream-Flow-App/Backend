@@ -55,7 +55,7 @@ exports.showProfile = async function (req, res) {
       return res.status(401).json({ message: 'Not authenticated!' });
     }
 
-    // Populate lastPlayback.songId so frontend can resume
+    // Populate lastPlayback.songId and queue so frontend can resume
     const user = await User.findById(req.user._id).populate({
       path: 'lastPlayback.songId',
       select: 'title singer audioUrl coverImageUrl genre category duration uploadedBy',
@@ -64,6 +64,9 @@ exports.showProfile = async function (req, res) {
         model: 'User',
         select: 'username profileImg'
       }
+    }).populate({
+      path: 'lastPlayback.queue',
+      select: 'title singer audioUrl coverImageUrl genre category duration uploadedBy'
     });
 
     const safeProfileImg = 
@@ -83,8 +86,27 @@ exports.showProfile = async function (req, res) {
     let lastPlayback = null;
     if (user.lastPlayback?.songId && typeof user.lastPlayback.songId === 'object') {
       const song = user.lastPlayback.songId;
+      
+      const formattedQueue = (user.lastPlayback.queue || []).map(qSong => {
+        if (!qSong || typeof qSong !== 'object') return null;
+        return {
+          _id: qSong._id,
+          id: qSong._id,
+          title: qSong.title,
+          singer: qSong.singer,
+          artist: qSong.singer,
+          audioUrl: normalizeFilePath(qSong.audioUrl),
+          coverImageUrl: normalizeFilePath(qSong.coverImageUrl),
+          genre: qSong.genre,
+          category: qSong.category,
+          duration: qSong.duration,
+          uploadedBy: qSong.uploadedBy,
+        };
+      }).filter(Boolean);
+
       lastPlayback = {
         currentTime: user.lastPlayback.currentTime || 0,
+        queue: formattedQueue,
         songId: {
           _id: song._id,
           id: song._id,
@@ -159,14 +181,20 @@ exports.syncPlayback = async function (req, res) {
       return res.status(401).json({ message: 'Not authenticated!' });
     }
 
-    const { songId, currentTime } = req.body;
+    const { songId, currentTime, queue } = req.body;
+
+    const updateData = {
+      'lastPlayback.songId': songId || null,
+      'lastPlayback.currentTime': currentTime || 0
+    };
+    
+    if (queue && Array.isArray(queue)) {
+      updateData['lastPlayback.queue'] = queue;
+    }
 
     // Use findByIdAndUpdate to avoid pre-save hooks and just update the nested field
     await User.findByIdAndUpdate(req.user._id, {
-      $set: {
-        'lastPlayback.songId': songId || null,
-        'lastPlayback.currentTime': currentTime || 0
-      }
+      $set: updateData
     });
 
     res.status(200).json({ message: 'Playback state synced' });

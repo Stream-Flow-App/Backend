@@ -87,8 +87,27 @@ const normalizeFilePath = (filePath) => {
 const formatLastPlayback = (lastPlayback) => {
   if (!lastPlayback?.songId || typeof lastPlayback.songId !== 'object') return null;
   const song = lastPlayback.songId;
+
+  const formattedQueue = (lastPlayback.queue || []).map(qSong => {
+    if (!qSong || typeof qSong !== 'object') return null;
+    return {
+      _id: qSong._id,
+      id: qSong._id,
+      title: qSong.title,
+      singer: qSong.singer,
+      artist: qSong.singer,
+      audioUrl: normalizeFilePath(qSong.audioUrl),
+      coverImageUrl: normalizeFilePath(qSong.coverImageUrl),
+      genre: qSong.genre,
+      category: qSong.category,
+      duration: qSong.duration,
+      uploadedBy: qSong.uploadedBy,
+    };
+  }).filter(Boolean);
+
   return {
     currentTime: lastPlayback.currentTime || 0,
+    queue: formattedQueue,
     songId: {
       _id: song._id,
       id: song._id,
@@ -171,6 +190,9 @@ const checkExistingAuth = async (accessToken, req) => {
         model: 'User',
         select: 'username profileImg'
       }
+    }).populate({
+      path: 'lastPlayback.queue',
+      select: 'title singer audioUrl coverImageUrl genre category duration uploadedBy'
     });
     
     if (!user || !user.isActive) {
@@ -367,6 +389,9 @@ exports.login = async (req, res) => {
         model: 'User',
         select: 'username profileImg'
       }
+    }).populate({
+      path: 'lastPlayback.queue',
+      select: 'title singer audioUrl coverImageUrl genre category duration uploadedBy'
     });
 
     // Validate user and password

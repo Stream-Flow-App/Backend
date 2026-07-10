@@ -63,7 +63,8 @@ const userShcema = new mongoose.Schema({
     },
     lastPlayback: {
         songId: { type: mongoose.Schema.Types.ObjectId, ref: 'Audio' },
-        currentTime: { type: Number, default: 0 }
+        currentTime: { type: Number, default: 0 },
+        queue: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Audio' }]
     },
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Audio' }]
 },
