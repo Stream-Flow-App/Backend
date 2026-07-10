@@ -191,7 +191,7 @@ Base path: `/api/users`
 
 **Fields (all optional):** `name`, `username`, `phone`, `profileImg` (file)
 
-**Response `200 OK`:** `{ "message": "Profile updated!", "user": { ... } }`
+**Response `200 OK`:** `{ "message": "Profile updated!", "user": { ... } }` (Returns the complete updated user object minus password)
 
 ---
 
