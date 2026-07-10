@@ -85,9 +85,6 @@
       if (req.query.artist && req.query.artist !== 'all') {
         query.singer = new RegExp(`^${req.query.artist}$`, 'i');
       }
-      if (req.query.album && req.query.album !== 'all') {
-        query.album = new RegExp(`^${req.query.album}$`, 'i');
-      }
 
       const totalCount = await Audio.countDocuments(query);
       const audios = await Audio.find(query)
@@ -149,8 +146,7 @@
         $or: [
           { title: { $regex: regex } },
           { singer: { $regex: regex } },
-          { genre: { $regex: regex } },
-          { album: { $regex: regex } }
+          { genre: { $regex: regex } }
         ],
         status: 'approved',
         isPrivate: false
@@ -206,11 +202,19 @@
         .skip(skip)
         .limit(limit);
 
-      // Search Albums (distinct from Audio)
-      const matchingAlbums = await Audio.distinct('album', {
-        album: { $regex: regex }
-      });
-      const albums = matchingAlbums.slice(skip, skip + limit);
+      // Search Albums
+      const Album = require('../models/album.Model');
+      const albumCriteria = {
+        isPublic: true,
+        status: 'approved',
+        name: { $regex: regex }
+      };
+      const totalAlbums = await Album.countDocuments(albumCriteria);
+      const albums = await Album.find(albumCriteria)
+        .populate('owner', 'name username profileImg')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
       res.status(200).json({
         audios,
@@ -220,7 +224,7 @@
         users,
         totalUsers,
         albums,
-        totalAlbums: matchingAlbums.length,
+        totalAlbums,
         currentPage: page,
         totalPages: Math.max(Math.ceil(totalAudios / limit), Math.ceil(totalPlaylists / limit), Math.ceil(totalUsers / limit))
       });
@@ -293,7 +297,7 @@
     try {
       const audio = await Audio.findById(req.params.id);
       if (!audio) return res.status(404).json({ message: 'Audio not found.' });
-      if (audio.uploadedBy.toString() !== req.user._id.toString()) {
+      if (audio.uploadedBy.toString() !== req.user._id.toString() && !['admin', 'moderator'].includes(req.user.role)) {
         return res.status(403).json({ message: 'Forbidden. Not your audio.' });
       }
 
@@ -316,6 +320,11 @@
         } catch (uploadError) {
           console.error("Cloudinary upload failed during audio update:", uploadError);
         }
+      }
+
+      // If the artist updates the song data, it goes back to pending for moderation
+      if (audio.uploadedBy.toString() === req.user._id.toString()) {
+        audio.status = 'pending';
       }
 
       await audio.save();

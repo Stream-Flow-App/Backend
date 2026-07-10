@@ -23,6 +23,7 @@ const moderationRoutes = require("./routes/moderation.Routes.js");
 const applicationRoutes = require("./routes/application.Routes.js");
 const notificationRoutes = require("./routes/notification.Routes.js");
 const contactRoutes = require("./routes/contact.Routes.js");
+const albumRoutes = require("./routes/album.Routes.js");
 
 // Connect to database
 connectDB();
@@ -119,6 +120,7 @@ app.use("/api", adminPlaylistRoutes);
 app.use("/api", moderationRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/playlists", playlistRoutes);
+app.use("/api/albums", albumRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/contact", contactRoutes);

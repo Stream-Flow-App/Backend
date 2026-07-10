@@ -13,6 +13,9 @@ const {
 } = require('../controllers/playlist.Controller');
 const { checkAuthenticated, checkOptionalAuthenticated } = require('../middlewares/auth.Middleware');
 
+const upload = require('../config/multer');
+const { optimizeImage } = require('../middlewares/imageOptimizer');
+
 // Base route: /api/playlists
 
 // Get all public playlists
@@ -22,13 +25,13 @@ router.get('/public', getPublicPlaylists);
 router.get('/me', checkAuthenticated, getUserPlaylists);
 
 // Create a new playlist
-router.post('/', checkAuthenticated, createPlaylist);
+router.post('/', checkAuthenticated, upload.single('cover'), optimizeImage, createPlaylist);
 
 // Get a specific playlist by ID
 router.get('/:id', checkOptionalAuthenticated, getPlaylistById);
 
 // Update a specific playlist
-router.put('/:id', checkAuthenticated, updatePlaylist);
+router.put('/:id', checkAuthenticated, upload.single('cover'), optimizeImage, updatePlaylist);
 
 // Clone a specific playlist
 router.post('/clone/:id', checkAuthenticated, clonePlaylist);

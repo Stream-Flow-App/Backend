@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const { checkAuthenticated, authorizeRoles } = require("../middlewares/auth.Middleware");
-const { getPendingAlbums, approveAlbum, rejectAlbum } = require("../controllers/playlist.Controller");
+const { getPendingAlbums, approveAlbum, rejectAlbum } = require("../controllers/album.Controller");
 const validateObjectId = require("../middlewares/validateObjectId");
 
 // === Admin: Get Pending Albums ===

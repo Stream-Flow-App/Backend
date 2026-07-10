@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/admin.Controller')
 const audioController = require('../controllers/audio.Controller');
+const albumController = require('../controllers/album.Controller');
 const {checkAuthenticated , authorizeRoles} = require('../middlewares/auth.Middleware');
 
 // admin user routes
@@ -16,5 +17,10 @@ router.put('/admin/users/:username/role', checkAuthenticated, authorizeRoles('ad
 // admin audio routes
 router.get('/admin/audios', checkAuthenticated, authorizeRoles('admin', 'moderator'), audioController.getAdminAllAudios);
 router.delete('/admin/audios/:id', checkAuthenticated, authorizeRoles('admin', 'moderator'), audioController.adminDeleteAudio);
+
+// admin album routes
+router.get('/admin/albums/pending', checkAuthenticated, authorizeRoles('admin', 'moderator'), albumController.getPendingAlbums);
+router.patch('/admin/album/:id/approve', checkAuthenticated, authorizeRoles('admin', 'moderator'), albumController.approveAlbum);
+router.patch('/admin/album/:id/reject', checkAuthenticated, authorizeRoles('admin', 'moderator'), albumController.rejectAlbum);
 
 module.exports = router;
