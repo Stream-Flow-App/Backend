@@ -1,5 +1,6 @@
 const AlbumModel = require("../models/album.Model");
 const AudioModel = require("../models/audio.Model");
+const PlaylistModel = require("../models/playlist.Model");
 const mongoose = require("mongoose");
 
 // Create a new album
@@ -46,7 +47,10 @@ const createAlbum = async (req, res) => {
 const getUserAlbums = async (req, res) => {
   try {
     const userId = req.user.id;
-    const albums = await AlbumModel.find({ owner: userId }).sort({ createdAt: -1 }).populate('audio');
+    const albums = await AlbumModel.find({ owner: userId })
+      .sort({ createdAt: -1 })
+      .populate('audio')
+      .populate('owner', 'name email username profileImg');
     console.log("getUserAlbums called for user", userId, "found", albums.length, "albums");
     res.status(200).json({ success: true, albums });
   } catch (error) {
@@ -139,11 +143,15 @@ const updateAlbum = async (req, res) => {
     if (audio && !Array.isArray(audio)) {
       audioArray = [audio];
     }
+    // Filter out any undefined / non-string / non-ObjectId values
+    if (Array.isArray(audioArray)) {
+      audioArray = audioArray.filter(id => id && id !== 'undefined' && id.toString() !== 'undefined');
+    }
 
     album.name = name || album.name;
     album.description = description || album.description;
     if (isPublic !== undefined) album.isPublic = isPublic === 'true' || isPublic === true;
-    if (audioArray !== undefined) album.audio = audioArray;
+    if (audioArray !== undefined && audioArray.length > 0) album.audio = audioArray;
     
     if (req.file) {
       album.cover = req.file.path.replace(/\\/g, '/');
@@ -151,12 +159,24 @@ const updateAlbum = async (req, res) => {
       album.cover = coverUrl;
     }
 
-    // If artist edits an album, revert to pending
     if (!isAdminOrMod) {
       album.status = 'pending';
     }
 
     await album.save();
+    
+    // Sync the changes to any saved playlists for this album
+    await PlaylistModel.updateMany(
+      { originalId: album._id },
+      { 
+        $set: { 
+          name: album.name, 
+          description: album.description, 
+          cover: album.cover,
+          audio: album.audio 
+        } 
+      }
+    );
     
     // Return populated album
     const updatedAlbum = await AlbumModel.findById(id).populate('audio');
@@ -340,7 +360,8 @@ const getPendingAlbums = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const albums = await AlbumModel.find({ status: 'pending' })
-      .populate('owner', 'name email')
+      .populate('owner', 'name email username profileImg')
+      .populate('audio')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);

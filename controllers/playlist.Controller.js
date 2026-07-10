@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 // Create a new playlist
 const createPlaylist = async (req, res) => {
   try {
-    const { name, description, isPublic, isAlbum, coverUrl } = req.body;
+    const { name, description, isPublic, isAlbum, coverUrl, originalId } = req.body;
     let { audio } = req.body;
     const userId = req.user.id; // From checkAuthenticated middleware
 
@@ -33,7 +33,8 @@ const createPlaylist = async (req, res) => {
       status: (isAlbum === 'true' || isAlbum === true) ? 'pending' : 'approved',
       cover,
       audio: Array.isArray(audio) ? audio : [],
-      owner: userId
+      owner: userId,
+      originalId: originalId || null
     });
 
     res.status(201).json({ success: true, playlist });

@@ -449,7 +449,8 @@ Fields (all optional): `title`, `genre`, `singer`, `album`, `isPrivate`, `cover`
 
 Base path: `/api/playlists`
 
-Setting `isAlbum: true` creates an **Artist Album**, which starts as `status: pending` and requires admin approval before appearing publicly.
+> [!NOTE]
+> As of the July 2026 refactor, **albums are managed via the dedicated `/api/albums` API (Section 5 below)**. The Playlist API is now exclusively for user playlists. The legacy `isAlbum` flag on the Playlist model still exists for backwards compatibility but new albums should use `/api/albums`.
 
 ### 4.1 Get My Playlists
 
@@ -537,7 +538,238 @@ Duplicates an existing public playlist or album into the user's personal library
 
 ---
 
-## 📝 5. Artist Applications API
+## 💿 5. Album API
+
+Base path: `/api/albums`
+
+> [!IMPORTANT]
+> Albums are a **separate collection** from playlists (model: `AlbumModel`). Every new album starts with `status: "pending"` and must be approved by an admin or moderator before it becomes publicly visible.
+
+### Album Model Schema
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `name` | String | — | Required. Album display name |
+| `owner` | ObjectId (ref: User) | — | Required. Uploader/artist |
+| `cover` | String | `"No Cover"` | Cloudinary cover image URL |
+| `audio` | ObjectId[] (ref: Audio) | `[]` | Ordered list of track IDs |
+| `description` | String | `"No Description"` | Album description |
+| `isPublic` | Boolean | `false` | Whether album is publicly listed |
+| `status` | Enum | `"pending"` | `pending` \| `approved` \| `rejected` |
+
+---
+
+### 5.1 Get Public Albums
+
+Returns all albums where `isPublic: true` AND `status: "approved"`. Also auto-populates the cover with the last track's `coverImageUrl` if available.
+
+**Endpoint:** `GET /api/albums/public`  
+**Authentication:** None
+
+#### Response `200 OK`
+```json
+{
+  "success": true,
+  "albums": [
+    {
+      "_id": "6a4efd95...",
+      "name": "24K Magic",
+      "cover": "https://res.cloudinary.com/.../cover.jpg",
+      "isPublic": true,
+      "status": "approved",
+      "audio": [ { "_id": "...", "title": "That's What I Like", "audioUrl": "..." } ],
+      "owner": { "_id": "...", "name": "Bruno Mars", "username": "brunomars", "profileImg": "..." }
+    }
+  ]
+}
+```
+
+---
+
+### 5.2 Get My Albums
+
+Returns all albums owned by the authenticated user, regardless of status (pending, approved, rejected).
+
+**Endpoint:** `GET /api/albums/me`  
+**Authentication:** Required
+
+#### Response `200 OK`
+```json
+{
+  "success": true,
+  "albums": [
+    {
+      "_id": "...",
+      "name": "My Album",
+      "status": "pending",
+      "isPublic": true,
+      "audio": [ { "_id": "...", "title": "Track 1" } ]
+    }
+  ]
+}
+```
+
+---
+
+### 5.3 Create Album
+
+Creates a new album. Always starts with `status: "pending"` regardless of input.
+
+**Endpoint:** `POST /api/albums`  
+**Authentication:** Required  
+**Content-Type:** `multipart/form-data`  
+**Middlewares:** `checkAuthenticated`, `upload.single('cover')`, `optimizeImage`
+
+#### Request Body (Form Data)
+
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `name` | String | Yes | Album name |
+| `description` | String | No | Album description |
+| `isPublic` | Boolean/String | No | `true` or `"true"` to make public |
+| `audio` | String or String[] | No | One or more Audio ObjectIds |
+| `cover` | File | No | Cover image. If omitted, `coverUrl` is used, or falls back to song art |
+| `coverUrl` | String | No | Cloudinary URL to use as cover (alternative to file upload) |
+
+#### Response `201 Created`
+```json
+{
+  "success": true,
+  "album": {
+    "_id": "...",
+    "name": "My Album",
+    "status": "pending",
+    "isPublic": true,
+    "cover": "No Cover",
+    "audio": [],
+    "owner": "64c4e6..."
+  }
+}
+```
+
+---
+
+### 5.4 Get Album By ID
+
+Access rules:
+- **Owner** can always view their own album (any status).
+- **Non-owners** can only view albums that are both `isPublic: true` AND `status: "approved"`.
+
+**Endpoint:** `GET /api/albums/:id`  
+**Authentication:** Optional (`checkOptionalAuthenticated`)  
+
+#### Response `200 OK`
+```json
+{
+  "success": true,
+  "album": {
+    "_id": "...",
+    "name": "24K Magic",
+    "status": "approved",
+    "cover": "https://res.cloudinary.com/.../cover.jpg",
+    "audio": [ { "_id": "...", "title": "Locked Out Of Heaven", "audioUrl": "...", "coverImageUrl": "..." } ],
+    "owner": { "_id": "...", "name": "Bruno Mars", "username": "brunomars" }
+  }
+}
+```
+
+#### Error Responses
+| Code | Reason |
+| :--- | :--- |
+| `400` | Invalid ObjectId format |
+| `403` | Album is private or not yet approved |
+| `404` | Album not found |
+
+---
+
+### 5.5 Update Album
+
+Owner or admin/moderator can update album fields. Editing does **not** revert the album status to `pending` — the existing status is preserved.
+
+**Endpoint:** `PUT /api/albums/:id`  
+**Authentication:** Required (owner, admin, or moderator)  
+**Content-Type:** `multipart/form-data`  
+**Middlewares:** `checkAuthenticated`, `upload.single('cover')`, `optimizeImage`
+
+#### Request Body (Form Data)
+
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `name` | String | No | New album name |
+| `description` | String | No | New description |
+| `isPublic` | Boolean/String | No | `true` or `"true"` |
+| `audio` | String or String[] | No | Replacement list of Audio ObjectIds. Invalid/undefined values are automatically filtered out. |
+| `cover` | File | No | New cover image |
+| `coverUrl` | String | No | Cloudinary URL as cover alternative |
+
+#### Response `200 OK`
+```json
+{
+  "success": true,
+  "album": { "_id": "...", "name": "Updated Name", "audio": [ { "_id": "...", "title": "Track 1" } ] }
+}
+```
+
+#### Error Responses
+| Code | Reason |
+| :--- | :--- |
+| `400` | Invalid ID |
+| `403` | Not the owner and not admin/moderator |
+| `404` | Album not found |
+
+---
+
+### 5.6 Delete Album
+
+**Endpoint:** `DELETE /api/albums/:id`  
+**Authentication:** Required (owner only)  
+
+#### Response `200 OK`
+```json
+{ "success": true, "message": "Album deleted successfully" }
+```
+
+---
+
+### 5.7 Add Song to Album
+
+Appends a single song to the album's track list. If the album has no cover and this is the first song added, the album cover is automatically set to that song's `coverImageUrl`.
+
+**Endpoint:** `POST /api/albums/:id/songs`  
+**Authentication:** Required (owner only)  
+**Content-Type:** `application/json`
+
+**Request Body:** `{ "songId": "64d5..." }`
+
+#### Response `200 OK`
+```json
+{ "success": true, "album": { "_id": "...", "audio": [ ... ] } }
+```
+
+#### Error Responses
+| Code | Reason |
+| :--- | :--- |
+| `400` | Invalid ID or song already in album |
+| `403` | Not the owner |
+| `404` | Album or song not found |
+
+---
+
+### 5.8 Remove Song from Album
+
+Removes a song from the album. If the removed song was the cover source, the cover is automatically updated to the new first song's `coverImageUrl`, or set to `"No Cover"` if the album becomes empty.
+
+**Endpoint:** `DELETE /api/albums/:id/songs/:songId`  
+**Authentication:** Required (owner, admin, or moderator)  
+
+#### Response `200 OK`
+```json
+{ "success": true, "album": { "_id": "...", "audio": [ ... ] } }
+```
+
+---
+
+## 📝 6. Artist Applications API
 
 Base path: `/api/applications`
 
@@ -807,6 +1039,85 @@ Returns all audio tracks regardless of status.
 
 ---
 
+## 🛡️ 10. Admin — Album Moderation
+
+Base path: `/api/admin`
+
+These endpoints allow admins and moderators to review, approve, and reject albums submitted by artists. Albums start with `status: "pending"` upon creation and only become publicly visible after approval.
+
+---
+
+### 10.1 Get Pending Albums
+
+**Endpoint:** `GET /api/admin/albums/pending`  
+**Authentication:** Required (`admin` or `moderator`)  
+
+#### Query Parameters
+| Param | Default | Description |
+| :--- | :--- | :--- |
+| `page` | `1` | Page number |
+| `limit` | `50` | Results per page |
+
+#### Response `200 OK`
+```json
+{
+  "success": true,
+  "count": 1,
+  "totalCount": 1,
+  "totalPages": 1,
+  "currentPage": 1,
+  "albums": [
+    {
+      "_id": "...",
+      "name": "Zack's Choice",
+      "status": "pending",
+      "isPublic": true,
+      "audio": [],
+      "owner": { "name": "Zack", "email": "zack@example.com" },
+      "createdAt": "2026-07-10T..."
+    }
+  ]
+}
+```
+
+---
+
+### 10.2 Approve Album
+
+Sets the album's `status` to `"approved"`. The album will now be publicly visible (if `isPublic: true`).
+
+**Endpoint:** `PATCH /api/admin/album/:id/approve`  
+**Authentication:** Required (`admin` or `moderator`)  
+
+#### Response `200 OK`
+```json
+{
+  "success": true,
+  "message": "Album approved successfully.",
+  "album": { "_id": "...", "status": "approved" }
+}
+```
+
+---
+
+### 10.3 Reject Album
+
+Sets the album's `status` to `"rejected"`. The album will not appear publicly.
+
+**Endpoint:** `PATCH /api/admin/album/:id/reject`  
+**Authentication:** Required (`admin` or `moderator`)  
+
+#### Response `200 OK`
+```json
+{
+  "success": true,
+  "message": "Album rejected successfully.",
+  "album": { "_id": "...", "status": "rejected" }
+}
+```
+
+---
+
 ## 📋 Complete Route Index
 
 | Method | Path | Auth | Description |
@@ -823,19 +1134,27 @@ Returns all audio tracks regardless of status.
 | `GET` | `/api/users/public/:username` | None | Get public artist profile |
 | `GET` | `/audios` | None | Get all public audios |
 | `POST` | `/audios/upload` | Required | Upload audio |
-| `GET` | `/audios/search` | None | Global unified search |
+| `GET` | `/audios/search` | None | Global unified search (songs + playlists + albums + artists) |
 | `GET` | `/audios/stream/:id` | None | Stream audio |
 | `GET` | `/audios/mine` | Required | Get my uploaded audios |
 | `PUT` | `/audios/:id` | Required | Update audio |
 | `DELETE` | `/audios/:id` | Required | Delete audio |
 | `POST` | `/audios/:id/listen` | None | Increment listen count |
 | `GET` | `/api/playlists/me` | Required | Get my playlists |
-| `POST` | `/api/playlists` | Required | Create playlist or album |
+| `POST` | `/api/playlists` | Required | Create playlist |
 | `GET` | `/api/playlists/:id` | Optional | Get playlist by ID |
 | `PUT` | `/api/playlists/:id` | Required | Update playlist |
 | `DELETE` | `/api/playlists/:id` | Required | Delete playlist |
 | `POST` | `/api/playlists/:id/songs` | Required | Add song to playlist |
 | `DELETE` | `/api/playlists/:id/songs/:songId` | Required | Remove song from playlist |
+| `GET` | `/api/albums/public` | None | Get all approved public albums |
+| `GET` | `/api/albums/me` | Required | Get my albums (all statuses) |
+| `POST` | `/api/albums` | Required | Create album (starts pending) |
+| `GET` | `/api/albums/:id` | Optional | Get album by ID |
+| `PUT` | `/api/albums/:id` | Required | Update album |
+| `DELETE` | `/api/albums/:id` | Required | Delete album |
+| `POST` | `/api/albums/:id/songs` | Required | Add song to album |
+| `DELETE` | `/api/albums/:id/songs/:songId` | Required | Remove song from album |
 | `POST` | `/api/applications/apply` | Required | Submit artist application |
 | `GET` | `/api/applications/mine` | Required | Get my application |
 | `GET` | `/api/applications/admin` | admin/mod | Get all pending applications |
@@ -857,9 +1176,10 @@ Returns all audio tracks regardless of status.
 | `PATCH` | `/api/admin/audio/:id/approve` | admin/mod | Approve audio |
 | `PATCH` | `/api/admin/audio/:id/reject` | admin/mod | Reject audio |
 | `DELETE` | `/api/admin/audio/:id` | admin/mod | Force delete any audio |
-| `GET` | `/api/admin/albums/pending` | admin/mod | Get pending albums |
+| `GET` | `/api/admin/albums/pending` | admin/mod | Get pending albums (paginated) |
 | `PATCH` | `/api/admin/album/:id/approve` | admin/mod | Approve album |
 | `PATCH` | `/api/admin/album/:id/reject` | admin/mod | Reject album |
+
 
 ---
 

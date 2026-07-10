@@ -36,7 +36,13 @@ exports.getPublicUser = async function (req, res) {
       .sort({ createdAt: -1 })
       .populate('uploadedBy', 'name username profileImg');
 
-    res.status(200).json({ user, audios });
+    const Album = require('../models/album.Model');
+    const albums = await Album.find({ owner: user._id, isPublic: true, status: 'approved' })
+      .sort({ createdAt: -1 })
+      .populate('owner', 'name username profileImg')
+      .populate('audio');
+
+    res.status(200).json({ user, audios, albums });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Internal Server Error" });

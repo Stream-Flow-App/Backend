@@ -433,11 +433,17 @@
   exports.incrementListenTimes = async (req, res, next) => {
     try {
       const audioId = req.params.id;
-      const listenedSeconds = Number(req.body.listenedSeconds) || 0;
+      const listenedSeconds = Number(req.body?.listenedSeconds) || 0;
+      const isNewPlay = req.body?.isNewPlay !== false;
       
+      const incObj = { totalListenSeconds: listenedSeconds };
+      if (isNewPlay) {
+        incObj.listenTimes = 1;
+      }
+
       const audio = await Audio.findByIdAndUpdate(
         audioId,
-        { $inc: { listenTimes: 1, totalListenSeconds: listenedSeconds } },
+        { $inc: incObj },
         { new: true }
       );
 
