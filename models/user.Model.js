@@ -69,6 +69,8 @@ const userShcema = new mongoose.Schema({
 },
 { timestamps:true }
 );
+// Add indexing for faster queries
+userShcema.index({ name: 'text', username: 'text' });
 
 const User = mongoose.model('User', userShcema);
 

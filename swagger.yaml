@@ -280,6 +280,11 @@ paths:
                 listenedSeconds:
                   type: number
                   default: 0
+                  description: "Total seconds listened in this segment"
+                isNewPlay:
+                  type: boolean
+                  default: true
+                  description: "If true, increments the total play count. If false, only increments totalListenSeconds."
       responses:
         '200':
           description: Listen time incremented

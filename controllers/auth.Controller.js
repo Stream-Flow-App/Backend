@@ -1,5 +1,6 @@
 const hash = require("../utils/hash");
 const User = require("../models/user.Model");
+const Audio = require("../models/audio.Model");
 const jwt = require('../utils/jwt');
 const { sendEmail } = require("../utils/sendEmail");
 const cookieHelper = require('../utils/cookie');
@@ -280,7 +281,28 @@ exports.register = async (req, res) => {
       }
     }
 
+    // --- Retroactive Audio Claiming ---
+    // If the system has songs where 'singer' matches this new username (ignoring spaces & case),
+    // we assign those songs to this user and automatically promote them to an artist.
+    const normalizedUsernameChars = trimmedUsername.toLowerCase().replace(/\s+/g, '').split('');
+    const regexPattern = '^\\s*' + normalizedUsernameChars.join('\\s*') + '\\s*$';
+    const singerRegex = new RegExp(regexPattern, 'i');
+
+    const matchingAudios = await Audio.find({ singer: singerRegex });
+    
+    if (matchingAudios.length > 0) {
+      newUser.role = 'artist'; // Auto-promote
+    }
+
     await newUser.save();
+
+    if (matchingAudios.length > 0) {
+      const audioIds = matchingAudios.map(a => a._id);
+      await Audio.updateMany(
+        { _id: { $in: audioIds } },
+        { $set: { uploadedBy: newUser._id } }
+      );
+    }
 
     // Generate tokens
     const accessToken = jwt.generateAccessToken(newUser);

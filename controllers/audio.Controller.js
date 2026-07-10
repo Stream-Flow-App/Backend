@@ -118,10 +118,24 @@
   // === Get My Audios ===
   exports.getMyAudios = async (req, res, next) => {
     try {
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 20;
+      const skip = (page - 1) * limit;
+
+      const totalCount = await Audio.countDocuments({ uploadedBy: req.user._id });
       const audios = await Audio.find({ uploadedBy: req.user._id })
         .populate('uploadedBy', 'name username profileImg')
-        .sort({ createdAt: -1 });
-      res.json({ count: audios.length, audios });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      res.json({ 
+        count: audios.length, 
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        audios 
+      });
     } catch (err) {
       next(err);
     }
@@ -139,15 +153,12 @@
         return res.status(200).json({ audios: [], playlists: [] });
       }
 
-      // Safe regex matching
+      // Safe regex matching for playlists and users, while Audios use text index
       const regex = new RegExp(query, 'i');
-      
+
+      // Optimized native Text Search using the compound text index
       const searchCriteria = {
-        $or: [
-          { title: { $regex: regex } },
-          { singer: { $regex: regex } },
-          { genre: { $regex: regex } }
-        ],
+        $text: { $search: query },
         status: 'approved',
         isPrivate: false
       };

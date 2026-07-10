@@ -48,8 +48,25 @@ const createPlaylist = async (req, res) => {
 const getUserPlaylists = async (req, res) => {
   try {
     const userId = req.user.id;
-    const playlists = await PlaylistModel.find({ owner: userId }).sort({ createdAt: -1 }).populate('audio');
-    res.status(200).json({ success: true, playlists });
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+
+    const totalCount = await PlaylistModel.countDocuments({ owner: userId });
+    const playlists = await PlaylistModel.find({ owner: userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('audio');
+
+    res.status(200).json({ 
+      success: true, 
+      count: playlists.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
+      playlists 
+    });
   } catch (error) {
     console.error("Error fetching user playlists:", error);
     res.status(500).json({ success: false, message: "Server error fetching playlists" });
@@ -59,10 +76,17 @@ const getUserPlaylists = async (req, res) => {
 // Get all public playlists
 const getPublicPlaylists = async (req, res) => {
   try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = (page - 1) * limit;
+
+    const totalCount = await PlaylistModel.countDocuments({ isPublic: true, status: 'approved' });
     const playlists = await PlaylistModel.find({ isPublic: true, status: 'approved' })
       .populate('audio')
       .populate('owner', 'name username profileImg')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     const modifiedPlaylists = playlists.map(pl => {
       const p = pl.toObject();
@@ -73,7 +97,14 @@ const getPublicPlaylists = async (req, res) => {
       return p;
     });
 
-    res.status(200).json({ success: true, playlists: modifiedPlaylists });
+    res.status(200).json({ 
+      success: true, 
+      count: modifiedPlaylists.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
+      playlists: modifiedPlaylists 
+    });
   } catch (error) {
     console.error("Error fetching public playlists:", error);
     res.status(500).json({ success: false, message: "Server error fetching public playlists" });

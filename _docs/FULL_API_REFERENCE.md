@@ -433,13 +433,20 @@ Fields (all optional): `title`, `genre`, `singer`, `album`, `isPrivate`, `cover`
 
 ---
 
-### 3.8 Increment Listen Count
+### 3.8 Increment Listen Count and Track Play Time
 
 **Endpoint:** `POST /audios/:id/listen`
 **Authentication:** None
 **Content-Type:** `application/json`
 
-**Body (optional):** `{ "listenedSeconds": 120 }`
+**Body (optional):**
+```json
+{
+  "listenedSeconds": 10,
+  "isNewPlay": false
+}
+```
+*Note:* By default, or if `isNewPlay` is `true`, the total `listenTimes` (play count) of the song is incremented by 1. If `isNewPlay` is `false`, the server will **only** add `listenedSeconds` to the `totalListenSeconds` without artificially inflating the total play count.
 
 **Response `200 OK`:** `{ "message": "Listen time incremented", "listenTimes": 42, "totalListenSeconds": 3600 }`
 

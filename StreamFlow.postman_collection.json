@@ -1943,7 +1943,7 @@
                                         "method": "POST",
                                         "body": {
                                             "mode": "raw",
-                                            "raw": "{\n  \"listenedSeconds\": 0\n}",
+                                            "raw": "{\n  \"listenedSeconds\": 0,\n  \"isNewPlay\": true\n}",
                                             "options": {
                                                 "raw": {
                                                     "headerFamily": "json",
@@ -1990,7 +1990,7 @@
                                                 "method": "POST",
                                                 "body": {
                                                     "mode": "raw",
-                                                    "raw": "{\n  \"listenedSeconds\": 0\n}",
+                                                    "raw": "{\n  \"listenedSeconds\": 0,\n  \"isNewPlay\": true\n}",
                                                     "options": {
                                                         "raw": {
                                                             "headerFamily": "json",
@@ -2041,7 +2041,7 @@
                                                 "method": "POST",
                                                 "body": {
                                                     "mode": "raw",
-                                                    "raw": "{\n  \"listenedSeconds\": 0\n}",
+                                                    "raw": "{\n  \"listenedSeconds\": 0,\n  \"isNewPlay\": true\n}",
                                                     "options": {
                                                         "raw": {
                                                             "headerFamily": "json",

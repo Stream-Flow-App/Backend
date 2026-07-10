@@ -71,6 +71,9 @@ const audioSchema = new mongoose.Schema({
     default: 0
   }
 });
+// Add indexing for faster queries
+audioSchema.index({ status: 1, isPrivate: 1 });
+audioSchema.index({ title: 'text', singer: 'text', genre: 'text' });
 
 const Audio = mongoose.model("Audio", audioSchema);
 

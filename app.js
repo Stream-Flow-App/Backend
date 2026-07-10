@@ -69,8 +69,23 @@ const corsOptions = {
   ],
 };
 
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+
 // Apply CORS middleware with options
 app.use(cors(corsOptions));
+
+// Security Middlewares
+app.use(helmet());
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" })); // Allow cloudinary images
+
+// Global Rate Limiting to prevent brute-force attacks
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // limit each IP to 500 requests per windowMs
+  message: "Too many requests from this IP, please try again after 15 minutes."
+});
+app.use("/api/", limiter);
 
 // Middleware
 app.use(express.json());
