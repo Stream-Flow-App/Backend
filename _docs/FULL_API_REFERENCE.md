@@ -102,7 +102,7 @@ Base path: `/api/users`
     "username": "johndoe",
     "role": "user",
     "profileImg": "https://res.cloudinary.com/.../profile.webp",
-    "lastPlayback": { "currentTime": 120, "songId": { "_id": "...", "title": "Bad Guy" } }
+    "lastPlayback": { "currentTime": 120, "queue": [{ "_id": "...", "title": "Next Song" }], "songId": { "_id": "...", "title": "Bad Guy" } }
   }
 }
 ```
@@ -175,7 +175,7 @@ Base path: `/api/users`
     "phone": "No Phone Number",
     "role": "user",
     "profileImg": "https://res.cloudinary.com/.../profile.webp",
-    "lastPlayback": { "currentTime": 95, "songId": { "_id": "...", "title": "..." } }
+    "lastPlayback": { "currentTime": 95, "queue": [{ "_id": "...", "title": "..." }], "songId": { "_id": "...", "title": "..." } }
   }
 }
 ```

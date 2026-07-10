@@ -37,6 +37,14 @@ Retrieves the profile information for the currently authenticated user.
     "phone": "+1234567890",
     "profileImg": "/uploads/profiles/filename.jpg",
     "lastPlayback": {
+      "currentTime": 45,
+      "queue": [
+        {
+          "_id": "672...",
+          "title": "Next Song",
+          "singer": "Artist 2"
+        }
+      ],
       "songId": {
         "_id": "60d5ecb8b392...",
         "title": "Song Title",
@@ -92,7 +100,8 @@ Updates the profile information for the currently authenticated user. Supports `
     "profileImg": "/uploads/profiles/new-filename.jpg",
     "lastPlayback": {
       "songId": "60d5ecb8b392...",
-      "currentTime": 105.5
+      "currentTime": 105.5,
+      "queue": ["60d5ec..."]
     }
   }
 }
@@ -171,11 +180,13 @@ Updates the current user's playback state so it can be resumed seamlessly across
 | :--- | :--- | :--- | :--- |
 | `songId` | String | Yes | The ID of the currently playing Audio document. |
 | `currentTime` | Number | Yes | The timestamp (in seconds) the user paused or is currently at. |
+| `queue` | Array | No | The array of ObjectIds representing the user's active "Up Next" queue. |
 
 ```json
 {
   "songId": "60d5ecb8b392...",
-  "currentTime": 125.4
+  "currentTime": 125.4,
+  "queue": ["60d5ecb8b393...", "60d5ecb8b394..."]
 }
 ```
 

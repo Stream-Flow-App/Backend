@@ -180,6 +180,10 @@ paths:
                   type: string
                 currentTime:
                   type: number
+                queue:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           description: Playback state synced

@@ -61,7 +61,7 @@ Authenticates a user and establishes a session. Automatically prevents concurren
 | `remember`| boolean| No | If true, establishes a persistent 7-day refresh token session. |
 
 #### Responses
-- `200 OK` - Returns user object (including `lastPlayback` state) and sets `accessToken` cookie.
+- `200 OK` - Returns user object (including `lastPlayback` state with queue array) and sets `accessToken` cookie.
 - `400 Bad Request` - Invalid credentials.
 - `403 Forbidden` - Account deactivated.
 
@@ -75,7 +75,7 @@ Fetches the currently authenticated user's profile information. Commonly used on
 - **Auth Required:** Yes (`checkAuthenticated`)
 
 #### Responses
-- `200 OK` - Returns `name`, `username`, `phone`, `profileImg`, and `lastPlayback`.
+- `200 OK` - Returns `name`, `username`, `phone`, `profileImg`, and `lastPlayback` (with queue).
 - `401 Unauthorized` - Token missing, invalid, or expired.
 
 ---

@@ -1023,7 +1023,7 @@
                                         "method": "PUT",
                                         "body": {
                                             "mode": "raw",
-                                            "raw": "{\n  \"songId\": \"<string>\",\n  \"currentTime\": \"<number>\"\n}",
+                                            "raw": "{\n  \"songId\": \"<string>\",\n  \"currentTime\": \"<number>\",\n  \"queue\": [\n    \"<string>\"\n  ]\n}",
                                             "options": {
                                                 "raw": {
                                                     "headerFamily": "json",

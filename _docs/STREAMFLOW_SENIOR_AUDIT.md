@@ -61,3 +61,12 @@ Key bottlenecks—such as the lack of database indexing, unpaginated API endpoin
 **After:**
 - **Helmet Installed:** Successfully mounted `helmet()` to strip `X-Powered-By` headers, block clickjacking, and secure MIME types.
 - **Rate Limiting Implemented:** Successfully mounted `express-rate-limit` explicitly shielding `/api/` endpoints (throttled to 500 requests per 15 minutes per IP), effectively mitigating automated abuse.
+
+---
+
+## 6. State Management & Synchronization
+
+**Metric: Cross-Device State Persistence**
+- **Architecture:** The `lastPlayback` tracking architecture previously persisted only the singular active track and `currentTime`. 
+- **Enhancement:** Scaled the `lastPlayback` model to sync and deeply populate the *entire active queue* of `Audio` items concurrently with play state.
+- **Result:** Provides seamless cross-device, session-resilient continuation, elevating the UX to standard production streaming capabilities (Spotify/Apple Music parity for session resumption).

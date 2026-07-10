@@ -152,7 +152,7 @@ Manages authentication, session tracking, RBAC roles, and playback history.
 | `role` | Enum | default: `user` | Allowed values: `user`, `artist`, `moderator`, `admin` |
 | `sessions` | Array | | Stores active JWT session data (token, expires, device) |
 | `favorites`| [ObjectId] | ref: `Audio` | List of liked/bookmarked audio tracks |
-| `lastPlayback` | Object | | Resumes playback context (`songId` and `currentTime`) |
+| `lastPlayback` | Object | | Resumes playback context (`songId`, `currentTime`, and `queue` array) |
 
 ### 6.2 Audio Model (`audios`)
 The core entity representing an uploaded track.
