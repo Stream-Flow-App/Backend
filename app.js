@@ -36,30 +36,37 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     // Define allowed origins
     const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:5172',
-      'http://localhost:3000',
-      'http://localhost:5000',
-      'https://stream-flow-ui.vercel.app',
-      'https://stream-flow-sand.vercel.app',
-      'https://stream-flow-ten.vercel.app',
+      "http://localhost:5173",
+      "http://localhost:5172",
+      "http://localhost:3000",
+      "http://localhost:5000",
+      "https://stream-flow-ui.vercel.app",
+      "https://stream-flow-sand.vercel.app",
+      "https://stream-flow-ten.vercel.app",
       // Production
-      'https://streamflowonline-rose.vercel.app',
-      'https://backend-q3z0.onrender.com',
+      "https://streamflowonline-rose.vercel.app",
+      "https://streamflow-online.vercel.app",
+      "https://backend-q3z0.onrender.com",
     ];
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true, // Allow credentials (cookies, authorization headers)
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-csrf-token', 'Refresh-Token'],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "x-csrf-token",
+    "Refresh-Token",
+  ],
 };
 
 // Apply CORS middleware with options
@@ -82,7 +89,9 @@ app.get("/", (req, res) => {
 
     const docsContent = fs.readFileSync(docsPath, "utf8");
     // Parse markdown (assuming marked.parse or similar, marked() alone might be deprecated depending on version but let's stick to what's there)
-    const htmlContent = marked.parse ? marked.parse(docsContent) : marked(docsContent);
+    const htmlContent = marked.parse
+      ? marked.parse(docsContent)
+      : marked(docsContent);
     const template = fs.readFileSync(indexPath, "utf8");
 
     const finalHtml = template.replace("{{CONTENT}}", htmlContent);
@@ -98,11 +107,14 @@ app.get("/", (req, res) => {
 });
 
 // Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  customCss: ".swagger-ui .topbar { display: none }",
-  customSiteTitle: "StreamFlow API Documentation",
-}));
-
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "StreamFlow API Documentation",
+  }),
+);
 
 // Health check — used by Render and uptime monitors
 app.get("/health", (req, res) => {
@@ -126,12 +138,13 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/audios", audioRoutes);
 
-
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   if (res.headersSent) return next(err);
-  res.status(err.status || 500).json({ message: err.message || "Something went wrong!" });
+  res
+    .status(err.status || 500)
+    .json({ message: err.message || "Something went wrong!" });
 });
 
 module.exports = app;
